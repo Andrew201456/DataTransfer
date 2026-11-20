@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1b2d">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>Μεταφορά αρχείων</title>
+<style>
+:root{--bg:#f3f6f9;--panel:#fff;--ink:#0f1b2d;--mute:#5d6b7e;--line:#dbe3ec;--acc:#0d9488;--acc-ink:#fff;--bar:#cfe9e6;--err:#c0392b}
+@media (prefers-color-scheme:dark){:root{--bg:#0a1220;--panel:#12203a;--ink:#e8eef7;--mute:#8fa1ba;--line:#223455;--acc:#2dd4bf;--acc-ink:#06201c;--bar:#1c3a4a;--err:#ff7b6b}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.wrap{max-width:640px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+h1{font-size:1.35rem;margin:0;letter-spacing:-.01em}
+h2{font-size:1rem;margin:28px 0 10px}
+.me{display:flex;align-items:center;gap:8px;color:var(--mute);font-size:.9rem}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--err)}
+.dot.on{background:var(--acc)}
+button,input{font:inherit;color:inherit}
+button{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+input[type=text]{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:0}
+.room{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px}
+.room .mode{flex:1 1 100%;color:var(--mute);font-size:.9rem}
+.room input{flex:1 1 120px}
+.peer{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
+.peer.drag{border-color:var(--acc);background:var(--bar)}
+.peer .n{flex:1 1 140px;min-width:0}
+.peer .n b{display:block;overflow:hidden;text-overflow:ellipsis}
+.peer .n span{color:var(--mute);font-size:.85rem}
+.empty{color:var(--mute);border:1px dashed var(--line);border-radius:14px;padding:18px;text-align:center}
+.item{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.item .top{display:flex;gap:10px;align-items:baseline}
+.item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.item .meta{color:var(--mute);font-size:.85rem}
+.item .txt{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0}
+.bar{height:6px;background:var(--bar);border-radius:3px;margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--acc);width:0}
+.acts{display:flex;gap:8px;margin-top:8px}
+.acts a{color:var(--acc);font-weight:600}
+.err{color:var(--err)}
+#file{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Μεταφορά αρχείων</h1>
+    <div class="me"><span class="dot" id="dot"></span><button id="rename" title="Αλλαγή ονόματος"></button></div>
+  </header>
+
+  <div class="room">
+    <div class="mode" id="mode"></div>
+    <input type="text" id="code" placeholder="Κωδικός δωματίου" autocapitalize="off" autocomplete="off" inputmode="text">
+    <button class="pri" id="join">Σύνδεση</button>
+    <button id="newcode">Νέος κωδικός</button>
+    <button id="auto">Ίδιο δίκτυο</button>
+    <button id="copylink">Αντιγραφή συνδέσμου</button>
+  </div>
+
+  <h2>Συσκευές</h2>
+  <div id="peers"></div>
+
+  <h2>Μεταφορές</h2>
+  <div id="items"><div class="empty">Δεν έχει σταλεί ή ληφθεί τίποτα ακόμα.</div></div>
+</div>
+<input type="file" id="file" multiple>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const h = (tag, props = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k.startsWith("on")) e[k] = v; else if (k === "class") e.className = v; else e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) e.append(c);
+  return e;
+};
+const fmt = (n) => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(0) + " KB" : n < 1073741824 ? (n / 1048576).toFixed(1) + " MB" : (n / 1073741824).toFixed(2) + " GB";
+const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+
+const myId = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+let name = store.get("name") || ((/Android|iPhone|iPad/i.test(navigator.userAgent) ? "Κινητό" : "Υπολογιστής") + "-" + Math.floor(1000 + Math.random() * 9000));
+let room = (new URLSearchParams(location.search).get("room") || store.get("room") || "").trim().toLowerCase();
+
+const ICE = { iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }, { urls: "stun:stun.l.google.com:19302" }] };
+const CH = 64 * 1024, BUF = 4 * 1024 * 1024;
+const peers = new Map();   // id -> {name, pc, dc, ready, q, rx, pending}
+const items = [];
+
+// ---------- Signaling ----------
+let ws, retry = 0, pingT;
+const sig = (to, data) => ws && ws.readyState === 1 && ws.send(JSON.stringify({ type: "signal", to, data }));
+
+function wsConnect() {
+  clearInterval(pingT);
+  const u = new URL("/ws", location.href);
+  u.protocol = location.protocol === "https:" ? "wss:" : "ws:";
+  if (room) u.searchParams.set("room", room);
+  ws = new WebSocket(u);
+  ws.onopen = () => {
+    retry = 0; $("#dot").classList.add("on");
+    ws.send(JSON.stringify({ type: "hello", id: myId, name }));
+    pingT = setInterval(() => ws.readyState === 1 && ws.send("ping"), 25000);
+  };
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === "peers") syncPeers(m.peers); else if (m.type === "signal") onSignal(m.from, m.data);
+  };
+  ws.onclose = () => {
+    $("#dot").classList.remove("on"); clearInterval(pingT);
+    setTimeout(wsConnect, Math.min(1000 * 2 ** retry++, 10000));
+  };
+}
+function syncPeers(list) {
+  const ids = new Set(list.map((p) => p.id));
+  for (const [id, p] of peers) if (!ids.has(id)) { reset(id); peers.delete(id); }
+  for (const p of list) {
+    if (!peers.has(p.id)) peers.set(p.id, { name: p.name, q: Promise.resolve() });
+    else peers.get(p.id).name = p.name;
+  }
+  renderPeers();
+}
+
+// ---------- WebRTC ----------
+function newPC(id) {
+  const p = peers.get(id);
+  if (p.pc) p.pc.close();
+  const pc = new RTCPeerConnection(ICE);
+  p.pc = pc; p.pending = [];
+  pc.onicecandidate = (e) => e.candidate && sig(id, { ice: e.candidate });
+  pc.onconnectionstatechange = () => { if (["failed", "closed", "disconnected"].includes(pc.connectionState)) reset(id); };
+  return pc;
+}
+function reset(id) {
+  const p = peers.get(id); if (!p) return;
+  try { p.pc && p.pc.close(); } catch {}
+  p.pc = p.dc = p.ready = null; p.rx = null;
+  renderPeers();
+}
+function setupDC(id, dc, onopen) {
+  const p = peers.get(id);
+  dc.binaryType = "arraybuffer";
+  dc.bufferedAmountLowThreshold = 512 * 1024;
+  dc.onopen = () => { p.dc = dc; p.ready = p.ready || Promise.resolve(dc); onopen && onopen(dc); renderPeers(); };
+  dc.onmessage = (e) => onData(id, e.data);
+  dc.onclose = () => reset(id);
+}
+function connect(id) {
+  const p = peers.get(id);
+  if (!p) return Promise.reject(new Error("Η συσκευή αποσυνδέθηκε"));
+  if (p.dc && p.dc.readyState === "open") return Promise.resolve(p.dc);
+  if (p.ready) return p.ready;
+  p.ready = new Promise((res, rej) => {
+    const pc = newPC(id);
+    setupDC(id, pc.createDataChannel("f"), res);
+    pc.createOffer().then((o) => pc.setLocalDescription(o)).then(() => sig(id, { sdp: pc.localDescription })).catch(rej);
+    setTimeout(() => rej(new Error("Δεν ήταν δυνατή η σύνδεση")), 20000);
+  });
+  p.ready.catch(() => reset(id));
+  return p.ready;
+}
+async function onSignal(id, d) {
+  const p = peers.get(id); if (!p) return;
+  try {
+    if (d.sdp) {
+      if (d.sdp.type === "offer") {
+        if (p.pc && p.pc.signalingState === "have-local-offer" && myId > id) return; // glare
+        const pc = newPC(id);
+        pc.ondatachannel = (e) => setupDC(id, e.channel);
+        await pc.setRemoteDescription(d.sdp);
+        await pc.setLocalDescription(await pc.createAnswer());
+        sig(id, { sdp: pc.localDescription });
+        for (const c of p.pending.splice(0)) await pc.addIceCandidate(c);
+      } else if (p.pc) {
+        await p.pc.setRemoteDescription(d.sdp);
+        for (const c of p.pending.splice(0)) await p.pc.addIceCandidate(c);
+      }
+    } else if (d.ice && p.pc) {
+      if (p.pc.remoteDescription) await p.pc.addIceCandidate(d.ice); else p.pending.push(d.ice);
+    }
+  } catch (e) { console.warn(e); }
+}
+
+// ---------- Μεταφορά ----------
+let tick = 0;
+const touch = () => { if (!tick) tick = requestAnimationFrame(() => { tick = 0; renderItems(); }); };
+const addItem = (o) => { items.unshift(o); touch(); return o; };
+const drain = (dc) => new Promise((r) => dc.addEventListener("bufferedamountlow", r, { once: true }));
+
+function enqueue(id, fn) { const p = peers.get(id); if (p) p.q = p.q.then(fn); }
+
+function sendFiles(id, files) {
+  const p = peers.get(id); if (!p) return;
+  for (const f of files) {
+    const it = addItem({ dir: "out", peer: p.name, name: f.name, size: f.size, got: 0 });
+    enqueue(id, async () => {
+      try {
+        const dc = await connect(id);
+        dc.send(JSON.stringify({ t: "meta", name: f.name, size: f.size, type: f.type }));
+        for (let o = 0; o < f.size; o += CH) {
+          const buf = await f.slice(o, o + CH).arrayBuffer();
+          if (dc.readyState !== "open") throw new Error("Η σύνδεση έκλεισε");
+          if (dc.bufferedAmount > BUF) await drain(dc);
+          dc.send(buf);
+          it.got = Math.min(o + CH, f.size); touch();
+        }
+        while (dc.bufferedAmount > 0 && dc.readyState === "open") await new Promise((r) => setTimeout(r, 50));
+        it.got = f.size; it.done = true;
+      } catch (e) { it.err = e.message || "Σφάλμα"; }
+      touch();
+    });
+  }
+}
+function sendText(id, text) {
+  const p = peers.get(id); if (!p || !text) return;
+  const it = addItem({ dir: "out", peer: p.name, text, done: true });
+  enqueue(id, async () => {
+    try { (await connect(id)).send(JSON.stringify({ t: "text", text })); }
+    catch (e) { it.err = e.message || "Σφάλμα"; touch(); }
+  });
+}
+function onData(id, d) {
+  const p = peers.get(id); if (!p) return;
+  if (typeof d === "string") {
+    const m = JSON.parse(d);
+    if (m.t === "text") addItem({ dir: "in", peer: p.name, text: m.text, done: true });
+    else if (m.t === "meta") {
+      const it = addItem({ dir: "in", peer: p.name, name: m.name, size: m.size, got: 0 });
+      p.rx = { m, chunks: [], it };
+      if (m.size === 0) finish(p);
+    }
+  } else if (p.rx) {
+    p.rx.chunks.push(d); p.rx.it.got += d.byteLength; touch();
+    if (p.rx.it.got >= p.rx.m.size) finish(p);
+  }
+}
+function finish(p) {
+  const r = p.rx; p.rx = null;
+  r.it.url = URL.createObjectURL(new Blob(r.chunks, { type: r.m.type || "application/octet-stream" }));
+  r.it.done = true; touch();
+}
+
+// ---------- UI ----------
+let target = null;
+function renderPeers() {
+  const box = $("#peers"); box.replaceChildren();
+  if (!peers.size) {
+    box.append(h("div", { class: "empty" }, room
+      ? "Κανείς άλλος στο δωμάτιο «" + room + "». Άνοιξε το app σε άλλη συσκευή και βάλε τον ίδιο κωδικό."
+      : "Δεν βρέθηκε άλλη συσκευή στο ίδιο δίκτυο. Άνοιξε το app σε άλλη συσκευή με το ίδιο WiFi, ή χρησιμοποίησε κωδικό δωματίου."));
+    return;
+  }
+  for (const [id, p] of peers) {
+    const open = p.dc && p.dc.readyState === "open";
+    const card = h("div", { class: "peer" },
+      h("div", { class: "n" }, h("b", {}, p.name), h("span", {}, open ? "Άμεση σύνδεση ενεργή" : "Έτοιμη για σύνδεση")),
+      h("button", { class: "pri", onclick: () => { target = id; $("#file").click(); } }, "Αποστολή αρχείων"),
+      h("button", { onclick: () => { const t = prompt("Κείμενο ή σύνδεσμος για αποστολή σε " + p.name); t && sendText(id, t); } }, "Κείμενο"));
+    card.ondragover = (e) => { e.preventDefault(); card.classList.add("drag"); };
+    card.ondragleave = () => card.classList.remove("drag");
+    card.ondrop = (e) => { e.preventDefault(); card.classList.remove("drag"); if (e.dataTransfer.files.length) sendFiles(id, [...e.dataTransfer.files]); };
+    box.append(card);
+  }
+}
+function renderItems() {
+  const box = $("#items");
+  if (!items.length) return;
+  box.replaceChildren(...items.map((it) => {
+    const arrow = it.dir === "out" ? "↑ " : "↓ ";
+    const who = (it.dir === "out" ? "προς " : "από ") + it.peer;
+    const el = h("div", { class: "item" });
+    if (it.text !== undefined) {
+      el.append(h("div", { class: "top" }, h("span", { class: "meta" }, arrow + who)),
+        h("div", { class: "txt" }, it.text),
+        h("div", { class: "acts" }, h("button", { onclick: () => navigator.clipboard && navigator.clipboard.writeText(it.text) }, "Αντιγραφή")));
+    } else {
+      el.append(h("div", { class: "top" }, h("span", { class: "nm" }, arrow + it.name), h("span", { class: "meta" }, fmt(it.size))),
+        h("div", { class: "meta" }, who + (it.err ? "" : it.done ? " · ολοκληρώθηκε" : " · " + (it.size ? Math.round(it.got / it.size * 100) : 0) + "%")));
+      if (it.err) el.append(h("div", { class: "err" }, it.err));
+      else if (!it.done) el.append(h("div", { class: "bar" }, h("i", { style: "width:" + (it.size ? it.got / it.size * 100 : 0) + "%" })));
+      if (it.dir === "in" && it.url) el.append(h("div", { class: "acts" }, h("a", { href: it.url, download: it.name }, "Λήψη αρχείου")));
+    }
+    return el;
+  }));
+}
+function renderMode() {
+  $("#rename").textContent = name;
+  $("#mode").textContent = room ? "Δωμάτιο: " + room : "Αυτόματη εύρεση συσκευών στο ίδιο δίκτυο";
+  $("#code").value = room;
+  $("#auto").style.display = room ? "" : "none";
+  $("#copylink").style.display = room ? "" : "none";
+}
+function setRoom(r) {
+  room = r.trim().toLowerCase();
+  store.set("room", room);
+  history.replaceState(null, "", room ? "?room=" + encodeURIComponent(room) : location.pathname);
+  for (const id of [...peers.keys()]) reset(id);
+  peers.clear(); renderPeers(); renderMode();
+  ws.onclose = null; ws.close(); clearInterval(pingT);
+  $("#dot").classList.remove("on");
+  wsConnect();
+}
+
+$("#file").onchange = (e) => { if (target) sendFiles(target, [...e.target.files]); e.target.value = ""; };
+$("#join").onclick = () => setRoom($("#code").value);
+$("#code").onkeydown = (e) => e.key === "Enter" && setRoom($("#code").value);
+$("#newcode").onclick = () => setRoom(String(Math.floor(1000 + Math.random() * 9000)));
+$("#auto").onclick = () => setRoom("");
+$("#copylink").onclick = () => navigator.clipboard && navigator.clipboard.writeText(location.origin + "/?room=" + encodeURIComponent(room));
+$("#rename").onclick = () => {
+  const n = prompt("Όνομα αυτής της συσκευής", name);
+  if (n && n.trim()) { name = n.trim().slice(0, 40); store.set("name", name); renderMode(); ws.readyState === 1 && ws.send(JSON.stringify({ type: "hello", id: myId, name })); }
+};
+document.addEventListener("visibilitychange", () => { if (!document.hidden && ws.readyState > 1) { retry = 0; wsConnect(); } });
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+renderMode(); renderPeers(); wsConnect();
+</script>
+</body>
+</html>
