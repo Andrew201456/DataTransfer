@@ -31,7 +31,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .dot.on+.st::after{content:"Συνδεδεμένο"}
 .dot:not(.on)+.st::after{content:"Σύνδεση…"}
 .hero{position:relative;overflow:hidden;border-radius:30px;padding:30px 18px 22px;color:#eaf6f6;text-align:center;background:radial-gradient(120% 90% at 50% 0%,#17587a 0%,#0b2445 58%,#081529 100%)}
-.rings{position:absolute;left:50%;top:62px}
+.rings{position:absolute;left:50%;top:62px;pointer-events:none}
 .rings i{position:absolute;left:-170px;top:-170px;width:340px;height:340px;border-radius:50%;border:1.5px solid rgba(45,212,191,.45);opacity:0;animation:ping 5.4s ease-out infinite}
 .rings i:nth-child(2){animation-delay:1.8s}.rings i:nth-child(3){animation-delay:3.6s}
 @keyframes ping{0%{transform:scale(.2);opacity:.9}100%{transform:scale(1.5);opacity:0}}
@@ -45,8 +45,14 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .seg button{background:transparent;border-radius:999px;padding:8px 18px;min-height:40px;color:#cfe3ee}
 .seg button.on{background:#2dd4bf;color:#052b27}
 .roomrow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
-.roomrow input{flex:1 1 100%;max-width:240px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:14px;padding:10px 12px;text-align:center;font:800 1.5rem Manrope,system-ui;letter-spacing:.12em;min-width:0}
+.roomrow input{position:relative;z-index:1;user-select:text;-webkit-user-select:text;touch-action:manipulation;flex:1 1 100%;max-width:240px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:14px;padding:10px 12px;text-align:center;font:800 1.5rem Manrope,system-ui;letter-spacing:.12em;min-width:0}
 .roomrow input::placeholder{color:#7fa3ba;font-size:1rem;letter-spacing:0;font-weight:600}
+.roomrow input:focus{outline:2px solid #2dd4bf;outline-offset:3px}
+.room-help{flex:1 1 100%;font-size:.8rem;color:#c7dde9;line-height:1.55;margin:3px 8px 0;text-align:center}
+.room-help strong{color:#fff}
+.roomrow .clear-code{background:rgba(255,255,255,.14);color:#fff;min-width:42px;padding:8px 12px}
+.empty .room-cta{display:flex;margin:14px auto 0;background:var(--acc);color:var(--accink);font-size:.9rem}
+
 .roomrow .hb{background:rgba(255,255,255,.12);color:#eaf6f6;font-size:.88rem;padding:8px 12px;min-height:40px}
 h2{font-size:1.05rem;font-weight:800;letter-spacing:-.01em;margin:30px 4px 12px}
 .peer{display:flex;align-items:center;flex-wrap:wrap;gap:12px 14px;background:var(--panel);border-radius:22px;padding:16px;margin-bottom:12px;box-shadow:var(--sh);border:2px solid transparent;transition:border-color .15s,background .15s}
@@ -92,10 +98,12 @@ h2{font-size:1.05rem;font-weight:800;letter-spacing:-.01em;margin:30px 4px 12px}
       <div class="sub" id="mode"></div>
       <div class="seg"><button id="auto">Ίδιο δίκτυο</button><button id="roomtab">Δωμάτιο</button></div>
       <div class="roomrow" id="roomrow">
-        <input type="text" id="code" placeholder="Κωδικός" autocapitalize="off" autocomplete="off">
-        <button class="hb" id="join">Σύνδεση</button>
+        <input type="text" id="code" placeholder="Κωδικός δωματίου" maxlength="32" aria-label="Κωδικός δωματίου" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="hb clear-code" id="clearcode" type="button" aria-label="Σβήσιμο κωδικού">✕</button>
+        <button class="hb" id="join" type="button">Σύνδεση</button>
         <button class="hb" id="newcode">Νέος κωδικός</button>
         <button class="hb" id="copylink">Αντιγραφή συνδέσμου</button>
+        <p class="room-help">Για να εμφανιστούν οι συσκευές <strong>σε οποιοδήποτε δίκτυο</strong>, βάλε τον <strong>ίδιο κωδικό</strong> στο iPhone και στον υπολογιστή. Μετά πάτα «Σύνδεση».</p>
       </div>
     </div>
   </section>
@@ -299,9 +307,11 @@ const isPhone = (n) => /^Κινητ/i.test(n);
 function renderPeers() {
   const box = $("#peers"); box.replaceChildren();
   if (!peers.size) {
-    box.append(h("div", { class: "empty" }, room
-      ? "Κανείς άλλος στο δωμάτιο «" + room + "». Άνοιξε το app σε άλλη συσκευή και βάλε τον ίδιο κωδικό."
-      : "Δεν βρέθηκε άλλη συσκευή στο ίδιο δίκτυο. Άνοιξε το app σε άλλη συσκευή με το ίδιο WiFi ή χρησιμοποίησε δωμάτιο."));
+    const empty = h("div", { class: "empty" }, room
+      ? "Δεν υπάρχει άλλη συσκευή στο δωμάτιο «" + room + "». Βάλε ακριβώς τον ίδιο κωδικό και στην άλλη συσκευή."
+      : "Δεν βρέθηκε άλλη συσκευή αυτόματα. Σε ορισμένα δίκτυα η δημόσια IP διαφέρει ακόμη και στο ίδιο Wi-Fi. Σύνδεσε τις συσκευές με κοινό κωδικό δωματίου.");
+    if (!room) empty.append(h("button", { class: "room-cta", type: "button", onclick: () => openRoomMode() }, "Σύνδεση με κωδικό"));
+    box.append(empty);
     return;
   }
   for (const [id, p] of peers) {
@@ -339,31 +349,52 @@ function renderItems() {
     return h("div", { class: "item " + (out ? "out" : "in") }, h("div", { class: "badge" }, ico(out ? "up" : "down", 18)), body);
   }));
 }
-function renderMode() {
+function renderMode(forceCode = false) {
   $("#rename").textContent = name; $("#rename").append(ico("edit", 15));
   $("#meav").replaceChildren(ico(isPhone(name) ? "phone" : "laptop", 30));
   $("#mode").textContent = room ? "Δωμάτιο " + room : "Βρίσκω αυτόματα συσκευές στο ίδιο δίκτυο";
   $("#auto").classList.toggle("on", !room);
   $("#roomtab").classList.toggle("on", !!room);
   $("#roomrow").style.display = room ? "" : "none";
-  $("#code").value = room;
+  // Never overwrite the room code while somebody is editing it.
+  const input = $("#code");
+  if (forceCode || document.activeElement !== input) input.value = room;
 }
 function setRoom(r) {
   room = r.trim().toLowerCase();
   store.set("room", room);
   history.replaceState(null, "", room ? "?room=" + encodeURIComponent(room) : location.pathname);
   for (const id of [...peers.keys()]) reset(id);
-  peers.clear(); renderPeers(); renderMode();
-  ws.onclose = null; ws.close(); clearInterval(pingT);
+  peers.clear(); renderPeers(); renderMode(true);
+  if (ws) { ws.onclose = null; ws.close(); } clearInterval(pingT);
   $("#dot").classList.remove("on");
   wsConnect();
 }
-$("#roomtab").onclick = () => { if (!room) setRoom(String(Math.floor(1000 + Math.random() * 9000))); };
+function newRoomCode() {
+  const bytes = new Uint32Array(1);
+  crypto.getRandomValues(bytes);
+  return String(100000 + (bytes[0] % 900000));
+}
+function openRoomMode() {
+  if (!room) setRoom(newRoomCode());
+  const field = $("#code");
+  field.focus();
+  field.select(); // Replace the current code immediately by typing.
+}
+function joinEnteredRoom() {
+  const entered = $("#code").value.trim().toLowerCase().slice(0, 32);
+  if (!entered) { $("#code").focus(); return; }
+  setRoom(entered);
+  $("#code").blur();
+}
+$("#roomtab").onclick = openRoomMode;
 
 $("#file").onchange = (e) => { if (target) sendFiles(target, [...e.target.files]); e.target.value = ""; };
-$("#join").onclick = () => setRoom($("#code").value);
-$("#code").onkeydown = (e) => e.key === "Enter" && setRoom($("#code").value);
-$("#newcode").onclick = () => setRoom(String(Math.floor(1000 + Math.random() * 9000)));
+$("#join").onclick = joinEnteredRoom;
+$("#code").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); joinEnteredRoom(); } };
+$("#code").addEventListener("focus", (e) => { e.target.select(); });
+$("#clearcode").onclick = () => { $("#code").value = ""; $("#code").focus(); };
+$("#newcode").onclick = () => setRoom(newRoomCode());
 $("#auto").onclick = () => setRoom("");
 $("#copylink").onclick = () => navigator.clipboard && navigator.clipboard.writeText(location.origin + "/?room=" + encodeURIComponent(room));
 $("#rename").onclick = () => {
