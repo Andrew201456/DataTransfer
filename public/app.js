@@ -26,7 +26,7 @@
   const el={
     dot:$("#dot"),connection:$("#connectionText"),name:$("#meName"),rename:$("#rename"),
     peers:$("#peers"),peerCount:$("#peerCount"),items:$("#items"),file:$("#file"),
-    drop:$("#dropZone"),toast:$("#toast"),session:$("#sessionMode")
+    drop:$("#dropZone"),toast:$("#toast")
   };
   const fmt = n => {
     if (n < 1024) return n + " B";
