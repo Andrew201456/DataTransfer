@@ -66,8 +66,8 @@
     el.dot.classList.toggle("on",online);
     el.connection.textContent=!online?"Επανασύνδεση…":
       peers.size?"Συνδέθηκαν οι συσκευές":"Αναζήτηση συσκευών…";
-    el.session.textContent=peers.size?"Συσκευές διαθέσιμες για αποστολή":
-      online?"Ανοιχτό και έτοιμο":"Γίνεται σύνδεση…";
+    // Drive the antenna animation entirely from existing discovery state.
+    document.body.dataset.signalState=!online?"offline":peers.size?"connected":"searching";
   }
   function renderSelf() {el.name.textContent=name;}
   function disconnectPeer(p) {
@@ -481,7 +481,7 @@
     el.peers.replaceChildren();
     el.peerCount.textContent=peers.size===1?"1 συσκευή":peers.size+" συσκευές";
     if(!peers.size){
-      el.peers.append(node("div","peers-empty","Περιμένουμε τη δεύτερη συσκευή. Άνοιξε εκεί τον σύνδεσμο ή πληκτρολόγησε τον κωδικό."));
+      el.peers.append(node("div","peers-empty","Άνοιξε το DataTransfer και στη δεύτερη συσκευή."));
       return;
     }
     for(const [id,p] of peers){
