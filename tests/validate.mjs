@@ -29,6 +29,12 @@ for(const match of js.matchAll(/\$\("#([^"]+)"\)/g))
 assert(!html.includes("fonts.googleapis.com"),"Core app must not need remote fonts");
 assert(sw.includes('"/app.js"')&&sw.includes('"/style.css"'));
 assert(js.includes("relayTransport"),"Relay fallback missing");
+assert(js.includes('connectSocket("primary")'),"Automatic discovery must start without user action");
+assert(js.includes('discoverGateway()'),"Optional STUN IPv4 matching missing");
+assert(js.includes('sourcePeers'),"Multiple discovery paths must be merged");
+for(const id of ["join","joinCode","roomCode","copyLink","copyCode","newRoom","shareLink"])
+ assert(!html.includes('id="'+id+'"'),"Manual room/link UI must be removed: "+id);
+assert(!/room-first|invitation link/i.test(html),"Manual invites must not appear in UI");
 assert(js.includes("tryDirect"),"WebRTC direct connection missing");
 assert(js.includes('t:"received"'),"Receiver acknowledgement missing");
 assert(js.includes('const MAX_FILE = 256 * 1024 * 1024;'),"Transfer size guard missing");
@@ -68,4 +74,4 @@ assert.deepEqual([...forwarded.subarray(12)],[1,2,3,4]);
 const received=b.frames.length;
 room.webSocketMessage(new Socket(),frame.buffer);
 assert.equal(b.frames.length,received,"Unregistered sender must not relay data");
-console.log("PASS: assets, syntax, room-first UI, 24-digit DriveTunes signaling, binary and text relay");
+console.log("PASS: assets, syntax, automatic discovery UI, 24-digit DriveTunes signaling, binary and text relay");
