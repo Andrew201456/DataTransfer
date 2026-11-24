@@ -22,7 +22,7 @@
   }
   const queryRoom = new URLSearchParams(location.search).get("room");
   let room = queryRoom && VALID_ROOM.test(queryRoom.toLowerCase()) ? queryRoom.toLowerCase() :
-    (VALID_ROOM.test(store.get("room") || "") ? store.get("room") : freshRoom());
+    (VALID_ROOM.test(store.get("room") || "") && (store.get("room") || "").length >= 12 ? store.get("room") : freshRoom());
   store.set("room",room);
 
   let ws = null, wsTimer = null, pingTimer = null, reconnectAttempts = 0, wsGeneration = 0;
@@ -372,9 +372,10 @@
     let timeout=null;
     try {
       transport.send(JSON.stringify({t:"meta",id:tx,name:file.name,size:file.size,type:file.type}));
-      const deadline=Date.now()+120000;
       for(let offset=0;offset<file.size;offset+=CHUNK){
-        await waitForRoom(receipt,offset,transport,deadline);
+        // Only stall a transfer after 30 seconds without network progress;
+        // large files must not have a hard two-minute total duration limit.
+        await waitForRoom(receipt,offset,transport,Date.now()+30000);
         const bytes=await file.slice(offset,offset+CHUNK).arrayBuffer();
         transport.send(bytes);
         item.got=Math.min(offset+bytes.byteLength,file.size);
