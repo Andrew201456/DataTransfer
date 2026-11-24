@@ -1,6 +1,6 @@
-/* DataTransfer v2 — room-first pairing, direct WebRTC with WebSocket relay fallback.
-   A room URL/code is required; IP based auto-discovery is intentionally removed.
-   Cloudflare relays files in transit only when WebRTC cannot connect. */
+/* DataTransfer — automatic network discovery, no manual rooms or links.
+   Network-IP rendezvous plus optional STUN gateway matching (IPv4/IPv6 cases).
+   WebRTC transfers first, WebSocket relay fallback where needed. */
 (() => {
   "use strict";
   const $ = selector => document.querySelector(selector);
@@ -8,7 +8,6 @@
     get(key) { try { return localStorage.getItem(key); } catch { return null; } },
     set(key, value) { try { localStorage.setItem(key, value); } catch {} }
   };
-  const VALID_ROOM = /^[a-z0-9-]{6,32}$/;
   const MAX_FILE = 256 * 1024 * 1024;
   const CHUNK = 32 * 1024;
   const WINDOW = 512 * 1024;
@@ -16,23 +15,16 @@
   const myId = Array.from(crypto.getRandomValues(new Uint8Array(6)), v=>v.toString(16).padStart(2,"0")).join("");
   const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
   let name = store.get("name") || (mobile ? "Κινητό " : "Υπολογιστής ") + myId.slice(0,4).toUpperCase();
-  function freshRoom() {
-    const chars = "23456789abcdefghjkmnpqrstuvwxyz";
-    return Array.from(crypto.getRandomValues(new Uint8Array(16)), b=>chars[b % chars.length]).join("");
-  }
-  const queryRoom = new URLSearchParams(location.search).get("room");
-  let room = queryRoom && VALID_ROOM.test(queryRoom.toLowerCase()) ? queryRoom.toLowerCase() :
-    (VALID_ROOM.test(store.get("room") || "") && (store.get("room") || "").length >= 12 ? store.get("room") : freshRoom());
-  store.set("room",room);
-
-  let ws = null, wsTimer = null, pingTimer = null, reconnectAttempts = 0, wsGeneration = 0;
-  let selectedPeer = null, toastTimer = null, renderTimer = null;
-  const peers = new Map();
-  const transfers = [];
-  const awaiting = new Map();
-  const el = {
-    dot:$("#dot"),connection:$("#connectionText"),roomCode:$("#roomCode"),link:$("#roomLink"),
-    name:$("#meName"),rename:$("#rename"),join:$("#join"),joinCode:$("#joinCode"),
+  // No shared room code or user action is necessary to join a local network.
+  // The default WebSocket is grouped by the origin IP at the Cloudflare edge.
+  let ws=null, backupWs=null, extraRoom=null, reconnectAttempts={primary:0,extra:0};
+  const reconnectTimers={primary:null,extra:null}, pingTimers={primary:null,extra:null};
+  const generations={primary:0,extra:0};
+  const sourcePeers=new Map();
+  let selectedPeer=null, toastTimer=null;
+  const peers=new Map(), transfers=[], awaiting=new Map();
+  const el={
+    dot:$("#dot"),connection:$("#connectionText"),name:$("#meName"),rename:$("#rename"),
     peers:$("#peers"),peerCount:$("#peerCount"),items:$("#items"),file:$("#file"),
     drop:$("#dropZone"),toast:$("#toast"),session:$("#sessionMode")
   };
@@ -69,99 +61,174 @@
     el.toast.hidden=false;
     toastTimer=setTimeout(()=>{el.toast.hidden=true;},6500);
   }
-  function setOnline(value) {
-    el.dot.classList.toggle("on",value);
-    el.connection.textContent=value?"Έτοιμο για σύνδεση":"Επανασύνδεση…";
+  function refreshConnection() {
+    const online=[ws,backupWs].some(socket=>socket?.readyState===WebSocket.OPEN);
+    el.dot.classList.toggle("on",online);
+    el.connection.textContent=!online?"Επανασύνδεση…":
+      peers.size?"Συνδέθηκαν οι συσκευές":"Αναζήτηση συσκευών…";
+    el.session.textContent=peers.size?"Συσκευές διαθέσιμες για αποστολή":
+      online?"Ανοιχτό και έτοιμο":"Γίνεται σύνδεση…";
   }
-  function publicLink() {
-    return location.origin + location.pathname + "?room=" + encodeURIComponent(room);
-  }
-  function renderRoom() {
-    el.roomCode.textContent=room.toUpperCase();
-    el.link.textContent="Μοιράσου τον σύνδεσμο ή τον κωδικό σου";
-    el.name.textContent=name;
-    el.session.textContent="Ιδιωτική σύνδεση · " + room.length + " χαρακτήρες";
-    if(document.activeElement!==el.joinCode)el.joinCode.value="";
-    history.replaceState(null,"",location.pathname+"?room="+encodeURIComponent(room));
-  }
-  async function copy(text,success) {
-    try { await navigator.clipboard.writeText(text); toast(success); }
-    catch { toast("Δεν επιτράπηκε η αντιγραφή. Χρησιμοποίησε την επιλογή Κοινή χρήση.",true); }
-  }
-  function stopSocket() {
-    clearInterval(pingTimer);
-    clearTimeout(wsTimer);
-    wsGeneration++;
-    if(ws) {ws.onclose=null;try{ws.close();}catch{}ws=null;}
-    setOnline(false);
-  }
-  function signal(to,data) {
-    if(ws?.readyState===WebSocket.OPEN)
-      ws.send(JSON.stringify({type:"signal",to,data}));
-  }
-  function connectSocket() {
-    const generation=++wsGeneration;
-    const endpoint=new URL("/ws",location.href);
-    endpoint.protocol=location.protocol==="https:"?"wss:":"ws:";
-    endpoint.searchParams.set("room",room);
-    const socket=new WebSocket(endpoint.href);
-    socket.binaryType="arraybuffer";
-    ws=socket;
-    socket.onopen=()=>{
-      if(ws!==socket||generation!==wsGeneration)return;
-      reconnectAttempts=0;
-      setOnline(true);
-      socket.send(JSON.stringify({type:"hello",id:myId,name}));
-      clearInterval(pingTimer);
-      pingTimer=setInterval(()=>{if(socket.readyState===1)socket.send("ping");},25000);
-    };
-    socket.onmessage=event=>{
-      if(ws!==socket)return;
-      if(typeof event.data!=="string") {
-        const data=event.data;
-        if(!(data instanceof ArrayBuffer)||data.byteLength<13)return;
-        const sender=new TextDecoder().decode(new Uint8Array(data,0,12));
-        if(/^[0-9a-f]{12}$/.test(sender))onData(sender,data.slice(12),"relay");
-        return;
-      }
-      let message;
-      try {message=JSON.parse(event.data);}catch{return;}
-      if(message.type==="peers"&&Array.isArray(message.peers))syncPeers(message.peers);
-      else if(message.type==="signal")onSignal(message.from,message.data);
-      else if(message.type==="relay"&&typeof message.data==="string")onData(message.from,message.data,"relay");
-    };
-    socket.onerror=()=>{if(ws===socket)setOnline(false);};
-    socket.onclose=()=>{
-      if(ws!==socket||generation!==wsGeneration)return;
-      clearInterval(pingTimer);
-      setOnline(false);
-      wsTimer=setTimeout(connectSocket,Math.min(1000*2**reconnectAttempts++,12000));
-    };
-  }
+  function renderSelf() {el.name.textContent=name;}
   function disconnectPeer(p) {
     if(p.pc){try{p.pc.close();}catch{}p.pc=null;}
     p.dc=null;p.ready=null;p.mode=null;p.rx=null;
   }
-  function switchRoom(next) {
-    next=String(next||"").trim().toLowerCase();
-    if(!VALID_ROOM.test(next))return toast("Ο κωδικός πρέπει να έχει 6–32 γράμματα ή αριθμούς.",true);
-    room=next;store.set("room",room);
-    stopSocket();
-    for(const p of peers.values())disconnectPeer(p);
-    peers.clear();renderRoom();renderPeers();connectSocket();
-    toast("Η σύνδεση δημιουργήθηκε. Στείλε τον σύνδεσμο στην άλλη συσκευή.");
-  }
-  function syncPeers(list) {
-    const available=new Set();
-    for(const entry of list) {
-      if(!entry||!/^[0-9a-f]{12}$/.test(entry.id)||entry.id===myId)continue;
-      available.add(entry.id);
-      let p=peers.get(entry.id);
-      if(!p){p={id:entry.id,name:"Συσκευή",pc:null,dc:null,ready:null,rx:null,mode:null,q:Promise.resolve(),earlyICE:[]};peers.set(entry.id,p);}
-      p.name=String(entry.name||"Συσκευή").slice(0,40);
+  // A peer may be discoverable through the Cloudflare IP session and/or
+  // a matching STUN reflexive IPv4. Merge the two groups without flicker.
+  function refreshPeers() {
+    const merged=new Map();
+    for(const [socket,entries] of sourcePeers){
+      if(socket.readyState!==WebSocket.OPEN)continue;
+      for(const entry of entries){
+        if(!entry||!/^[0-9a-f]{12}$/.test(entry.id)||entry.id===myId)continue;
+        const old=merged.get(entry.id);
+        if(!old)merged.set(entry.id,{name:entry.name,socket});
+      }
     }
-    for(const [id,p] of peers)if(!available.has(id)){disconnectPeer(p);peers.delete(id);}
-    renderPeers();
+    for(const [id,p] of peers)if(!merged.has(id)){disconnectPeer(p);peers.delete(id);}
+    for(const [id,entry] of merged) {
+      let p=peers.get(id);
+      if(!p){
+        p={id,name:"Συσκευή",pc:null,dc:null,ready:null,rx:null,mode:null,
+          q:Promise.resolve(),earlyICE:[],socket:entry.socket};
+        peers.set(id,p);
+      }
+      p.name=String(entry.name||"Συσκευή").slice(0,40);
+      // Prefer an existing live rendezvous path for active transfers.
+      if(p.socket?.readyState!==WebSocket.OPEN||!sourcePeers.get(p.socket)?.some(e=>e.id===id))
+        p.socket=entry.socket;
+    }
+    renderPeers();refreshConnection();
+  }
+  function syncPeers(list,socket) {
+    sourcePeers.set(socket,list);
+    refreshPeers();
+  }
+  function signal(to,data) {
+    const socket=peers.get(to)?.socket;
+    if(socket?.readyState===WebSocket.OPEN)
+      socket.send(JSON.stringify({type:"signal",to,data}));
+  }
+  function closeChannel(slot) {
+    clearTimeout(reconnectTimers[slot]);
+    clearInterval(pingTimers[slot]);
+    generations[slot]++;
+    const socket=slot==="primary"?ws:backupWs;
+    if(socket){
+      socket.onclose=null;
+      sourcePeers.delete(socket);
+      try{socket.close();}catch{}
+    }
+    if(slot==="primary")ws=null;
+    else backupWs=null;
+    refreshPeers();
+  }
+  function stopSocket() {
+    closeChannel("primary");
+    closeChannel("extra");
+  }
+  function connectSocket(slot="primary") {
+    const group=slot==="extra"?extraRoom:null;
+    if(slot==="extra"&&!group)return;
+    clearTimeout(reconnectTimers[slot]);
+    const generation=++generations[slot];
+    const endpoint=new URL("/ws",location.href);
+    endpoint.protocol=location.protocol==="https:"?"wss:":"ws:";
+    if(group)endpoint.searchParams.set("room",group);
+    let socket;
+    try{socket=new WebSocket(endpoint.href);}
+    catch{reconnectTimers[slot]=setTimeout(()=>connectSocket(slot),3000);return;}
+    socket.binaryType="arraybuffer";
+    if(slot==="primary")ws=socket;
+    else backupWs=socket;
+    socket.onopen=()=>{
+      if(generation!==generations[slot])return;
+      reconnectAttempts[slot]=0;
+      socket.send(JSON.stringify({type:"hello",id:myId,name}));
+      pingTimers[slot]=setInterval(()=>{
+        if(socket.readyState===WebSocket.OPEN)socket.send("ping");
+      },25000);
+      refreshConnection();
+    };
+    socket.onmessage=event=>{
+      if(generation!==generations[slot])return;
+      if(typeof event.data!=="string"){
+        const bytes=event.data;
+        if(!(bytes instanceof ArrayBuffer)||bytes.byteLength<13)return;
+        const sender=new TextDecoder().decode(new Uint8Array(bytes,0,12));
+        if(sourcePeers.get(socket)?.some(p=>p.id===sender))
+          onData(sender,bytes.slice(12),"relay");
+        return;
+      }
+      let m;
+      try{m=JSON.parse(event.data);}catch{return;}
+      if(m.type==="peers"&&Array.isArray(m.peers))syncPeers(m.peers,socket);
+      else if(m.type==="signal"){
+        const peer=peers.get(m.from);
+        if(peer){peer.socket=socket;onSignal(m.from,m.data,socket);}
+      }else if(m.type==="relay"&&sourcePeers.get(socket)?.some(p=>p.id===m.from))
+        onData(m.from,m.data,"relay");
+    };
+    socket.onerror=()=>refreshConnection();
+    socket.onclose=()=>{
+      if(generation!==generations[slot])return;
+      clearInterval(pingTimers[slot]);
+      sourcePeers.delete(socket);
+      if(slot==="primary")ws=null;
+      else backupWs=null;
+      refreshPeers();
+      reconnectTimers[slot]=setTimeout(()=>connectSocket(slot),
+        Math.min(1000*2**reconnectAttempts[slot]++,12000));
+    };
+    refreshConnection();
+  }
+  // ICE "srflx" public IPv4 can recover dual-stack cases where one browser
+  // reaches Cloudflare over IPv6, and the other over IPv4 on the same router.
+  // Hash the public address before sending it as a short-lived group key.
+  function publicIPv4(value) {
+    if(!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(value))return false;
+    const x=value.split(".").map(Number);
+    if(x.some(n=>n>255))return false;
+    return x[0]!==0&&x[0]!==10&&x[0]!==127&&x[0]<224&&
+      !(x[0]===169&&x[1]===254)&&!(x[0]===192&&x[1]===168)&&
+      !(x[0]===172&&x[1]>=16&&x[1]<=31)&&
+      !(x[0]===100&&x[1]>=64&&x[1]<=127);
+  }
+  async function discoverGateway() {
+    if(typeof RTCPeerConnection!=="function"||!crypto?.subtle?.digest)return;
+    let pc;
+    try{pc=new RTCPeerConnection(ICE);}
+    catch{return;}
+    const ip=await new Promise(resolve=>{
+      let settled=false;
+      function complete(value){
+        if(settled)return;
+        settled=true;clearTimeout(timer);
+        try{pc.close();}catch{}
+        resolve(value);
+      }
+      const timer=setTimeout(()=>complete(null),5000);
+      pc.onicecandidate=event=>{
+        const fields=String(event.candidate?.candidate||"").split(/\s+/);
+        const marker=fields.indexOf("typ");
+        if(marker>=0&&fields[marker+1]==="srflx"&&publicIPv4(fields[4]))
+          complete(fields[4]);
+      };
+      try{
+        pc.createDataChannel("discovery");
+        pc.createOffer().then(offer=>pc.setLocalDescription(offer)).catch(()=>complete(null));
+      }catch{complete(null);}
+    });
+    if(!ip)return;
+    try{
+      const hash=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode("dt-auto-v1:"+ip)));
+      const group="auto-"+Array.from(hash.slice(0,10),b=>b.toString(16).padStart(2,"0")).join("");
+      if(extraRoom===group)return;
+      closeChannel("extra");
+      extraRoom=group;
+      connectSocket("extra");
+    }catch{ /* Default network discovery still works without STUN */ }
   }
   function makePC(id) {
     const p=peers.get(id);if(!p)return null;
@@ -186,9 +253,10 @@
     dc.onclose=()=>{if(p.dc===dc){p.dc=null;p.mode=null;renderPeers();}};
     dc.onerror=()=>{};
   }
-  async function onSignal(id,data) {
+  async function onSignal(id,data,source) {
     const p=peers.get(id);
     if(!p||!data||typeof data!=="object"||typeof RTCPeerConnection!=="function")return;
+    if(source)p.socket=source;
     try {
       if(data.sdp?.type==="offer") {
         if(p.pc?.signalingState==="have-local-offer"&&myId>id)return;
@@ -208,22 +276,23 @@
     } catch(error) {console.warn("WebRTC negotiation failed",error);}
   }
   function relayTransport(id) {
-    if(ws?.readyState!==WebSocket.OPEN||!peers.has(id))
-      throw new Error("Δεν υπάρχει σύνδεση με την άλλη συσκευή.");
+    const peer=peers.get(id),socket=peer?.socket;
+    if(socket?.readyState!==WebSocket.OPEN)
+      throw new Error("Η άλλη συσκευή δεν είναι διαθέσιμη.");
     const encoded=new TextEncoder().encode(id);
     return {
       kind:"relay",
-      get readyState(){return ws?.readyState===WebSocket.OPEN?"open":"closed";},
-      get bufferedAmount(){return ws?.bufferedAmount||0;},
+      get readyState(){return socket.readyState===WebSocket.OPEN?"open":"closed";},
+      get bufferedAmount(){return socket.bufferedAmount||0;},
       send(data) {
-        if(ws?.readyState!==WebSocket.OPEN)throw new Error("Χάθηκε η σύνδεση Cloudflare.");
-        if(typeof data==="string"){
-          ws.send(JSON.stringify({type:"relay",to:id,data}));
-        }else{
+        if(socket.readyState!==WebSocket.OPEN)throw new Error("Η σύνδεση διακόπηκε.");
+        if(typeof data==="string")
+          socket.send(JSON.stringify({type:"relay",to:id,data}));
+        else{
           const bytes=new Uint8Array(data);
           const packet=new Uint8Array(12+bytes.byteLength);
           packet.set(encoded,0);packet.set(bytes,12);
-          ws.send(packet);
+          socket.send(packet);
         }
       }
     };
@@ -482,22 +551,14 @@
     toast(peers.size?"Επίλεξε πρώτα τη συσκευή από τη λίστα.":"Άνοιξε πρώτα το link στη δεύτερη συσκευή.",true);
     return null;
   }
-  $("#copyCode").onclick=()=>copy(room.toUpperCase(),"Ο κωδικός αντιγράφηκε.");
-  $("#copyLink").onclick=()=>copy(publicLink(),"Ο σύνδεσμος πρόσκλησης αντιγράφηκε.");
-  $("#shareLink").onclick=async()=>{
-    if(navigator.share){try{await navigator.share({title:"DataTransfer",text:"Άνοιξε αυτό το link για μεταφορά αρχείων:",url:publicLink()});}
-      catch(error){if(error.name!=="AbortError")copy(publicLink(),"Ο σύνδεσμος αντιγράφηκε.");}}
-    else copy(publicLink(),"Ο σύνδεσμος αντιγράφηκε.");
-  };
-  $("#newRoom").onclick=()=>switchRoom(freshRoom());
-  el.join.onclick=()=>{const input=el.joinCode.value.trim().toLowerCase();switchRoom(input);};
-  el.joinCode.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();el.join.click();}});
   el.rename.onclick=()=>{
     const chosen=prompt("Όνομα συσκευής",name);
     if(chosen?.trim()){
       name=chosen.trim().slice(0,40);store.set("name",name);
-      renderRoom();
-      if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:"hello",id:myId,name}));
+      renderSelf();
+      for(const socket of [ws,backupWs])
+        if(socket?.readyState===WebSocket.OPEN)
+          socket.send(JSON.stringify({type:"hello",id:myId,name}));
     }
   };
   el.file.addEventListener("change",event=>{
@@ -518,9 +579,13 @@
     const id=onlyPeer();if(id&&event.dataTransfer?.files?.length)sendFiles(id,event.dataTransfer.files);
   });
   document.addEventListener("visibilitychange",()=>{
-    if(!document.hidden&&(!ws||ws.readyState>1)){
-      clearTimeout(wsTimer);connectSocket();
-    }
+    if(document.hidden)return;
+    if(!ws||ws.readyState>1)connectSocket("primary");
+    if(extraRoom&&(!backupWs||backupWs.readyState>1))connectSocket("extra");
+  });
+  window.addEventListener("online",()=>{
+    if(!ws||ws.readyState>1)connectSocket("primary");
+    discoverGateway();
   });
   window.addEventListener("beforeunload",()=>{
     for(const t of transfers)if(t.url)URL.revokeObjectURL(t.url);
@@ -528,5 +593,8 @@
   });
   if("serviceWorker" in navigator&&window.isSecureContext)
     navigator.serviceWorker.register("/sw.js").catch(()=>{});
-  renderRoom();renderPeers();renderItems();connectSocket();
+  // Ignore legacy invitations: matching is now automatic on both devices.
+  if(location.search)history.replaceState(null,"",location.pathname);
+  renderSelf();renderPeers();renderItems();connectSocket("primary");
+  discoverGateway();
 })();
