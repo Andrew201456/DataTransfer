@@ -27,6 +27,27 @@ assert.equal(ids.length,new Set(ids).size,"Duplicate HTML ids");
 for(const match of js.matchAll(/\$\("#([^"]+)"\)/g))
  assert(ids.includes(match[1]),"Missing element #"+match[1]);
 assert(!html.includes("fonts.googleapis.com"),"Core app must not need remote fonts");
+assert(html.includes('name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"'),
+ "Viewport must allow iPhone notch safe areas");
+assert(html.includes('name="apple-mobile-web-app-capable" content="yes"'),
+ "Home-screen iPhone standalone mode meta tag missing");
+assert(html.includes('name="apple-mobile-web-app-status-bar-style" content="black-translucent"'),
+ "Home-screen status-bar style missing");
+assert(css.includes("env(safe-area-inset-top,0px)")&&css.includes("display-mode:standalone"),
+ "iPhone standalone header must sit below notch/Dynamic Island");
+assert(css.includes("env(safe-area-inset-bottom,0px)"),
+ "Home indicator bottom inset missing");
+assert(css.includes("@media(prefers-reduced-motion:reduce)"),
+ "Animated scanner needs reduced-motion support");
+assert(html.includes('class="signal-orbit"')&&html.includes('class="signal-halo"'),
+ "Premium scanner visuals missing");
+assert(css.includes("signal-pulse")&&css.includes("orbit-rotate"),
+ "Scanner wave and orbit animation missing");
+assert(sw.includes("datatransfer-shell-v7"),
+ "PWA shell must invalidate old iPhone cached layout");
+const manifest=JSON.parse(load("public/manifest.json"));
+assert.equal(manifest.theme_color,"#080f1d");
+assert.equal(manifest.background_color,"#080f1d");
 assert(sw.includes('"/app.js"')&&sw.includes('"/style.css"'));
 assert(js.includes("relayTransport"),"Relay fallback missing");
 assert(html.includes('id="historySection"'),"Transfer history must expand when needed");
