@@ -13,7 +13,7 @@
   <script src="/app.js" defer></script>
   <title>DataTransfer · Αποστολή αρχείων</title>
 </head>
-<body>
+<body data-signal-state="searching">
   <main class="app">
     <header class="header">
       <div class="brand">
@@ -24,9 +24,20 @@
       </div>
       <div class="status" role="status" aria-live="polite"><i id="dot"></i><span id="connectionText">Σύνδεση…</span></div>
     </header>
-    <section class="intro">
-      <h1>Αρχεία από συσκευή<br>σε συσκευή. <em>Απλά.</em></h1>
-      <p>Άνοιξε αυτή τη σελίδα στο κινητό και στο PC, ιδανικά στο ίδιο Wi-Fi. Οι συσκευές εντοπίζονται αυτόματα.</p>
+    <section class="signal-panel" aria-label="Αυτόματη αναζήτηση συσκευών">
+      <div class="signal-visual" aria-hidden="true">
+        <span class="signal-wave wave-one"></span>
+        <span class="signal-wave wave-two"></span>
+        <span class="signal-wave wave-three"></span>
+        <span class="signal-core">
+          <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <path d="M24 27v13M18 40h12M24 27l-9-14M24 27l9-14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="24" cy="20" r="4.3" fill="currentColor"/>
+            <path d="M15 7a17 17 0 0 0-5.2 9M33 7a17 17 0 0 1 5.2 9" stroke="currentColor" stroke-width="2" opacity=".55" stroke-linecap="round"/>
+          </svg>
+          <span class="signal-check">✓</span>
+        </span>
+      </div>
     </section>
     <section class="self" aria-label="Αυτή η συσκευή">
       <span class="self-icon" aria-hidden="true">◉</span>
@@ -36,7 +47,6 @@
 
     <section class="section" aria-labelledby="peersTitle">
       <div class="heading"><h2 id="peersTitle">Συνδεδεμένες συσκευές</h2><small id="peerCount">0 συσκευές</small></div>
-      <p class="help" id="sessionMode">Αναζήτηση συσκευών…</p>
       <div id="peers" class="peer-grid"><div class="peers-empty">Αναζήτηση συσκευών…</div></div>
     </section>
 
@@ -57,7 +67,7 @@
       <div id="items" class="transfers"><div class="items-empty">Τα αρχεία που στέλνεις και λαμβάνεις θα εμφανίζονται εδώ.</div></div>
     </section>
 
-    <footer class="footer">Χωρίς λογαριασμό · Απευθείας μεταφορά όταν γίνεται · Εναλλακτική σύνδεση μέσω Cloudflare. Μην στέλνεις ευαίσθητα αρχεία σε άγνωστες συσκευές.</footer>
+    <footer class="footer">Χωρίς λογαριασμό · Έλεγξε τον παραλήπτη πριν στείλεις.</footer>
   </main>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
