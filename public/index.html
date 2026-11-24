@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0c1220">
-  <meta name="description" content="Άνοιξε το DataTransfer σε κινητό και υπολογιστή, βρες συσκευές αυτόματα και στείλε αρχεία.">
+  <meta name="description" content="Άμεση μεταφορά αρχείων μεταξύ συσκευών.">
   <meta name="robots" content="noindex,nofollow">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
-  <title>DataTransfer · Αποστολή αρχείων</title>
+  <title>DataTransfer</title>
 </head>
 <body data-signal-state="searching">
   <main class="app">
@@ -20,11 +20,11 @@
         <span class="logo" aria-hidden="true">
           <svg viewBox="0 0 28 28" fill="none"><path d="M5 9h18l-5-5m5 5-5 5M23 19H5l5-5m-5 5 5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
-        <strong>DataTransfer</strong>
+        <div class="brand-info"><strong>DataTransfer</strong><small id="meName">Συσκευή</small></div>
       </div>
-      <div class="status" role="status" aria-live="polite"><i id="dot"></i><span id="connectionText">Σύνδεση…</span></div>
+      <button id="rename" type="button" class="rename" aria-label="Μετονομασία συσκευής" title="Μετονομασία">✎</button>
     </header>
-    <section class="signal-panel" aria-label="Αυτόματη αναζήτηση συσκευών">
+    <section class="radar" aria-label="Κατάσταση σύνδεσης">
       <div class="signal-visual" aria-hidden="true">
         <span class="signal-wave wave-one"></span>
         <span class="signal-wave wave-two"></span>
@@ -33,41 +33,34 @@
           <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
             <path d="M24 27v13M18 40h12M24 27l-9-14M24 27l9-14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
             <circle cx="24" cy="20" r="4.3" fill="currentColor"/>
-            <path d="M15 7a17 17 0 0 0-5.2 9M33 7a17 17 0 0 1 5.2 9" stroke="currentColor" stroke-width="2" opacity=".55" stroke-linecap="round"/>
           </svg>
           <span class="signal-check">✓</span>
         </span>
       </div>
-    </section>
-    <section class="self" aria-label="Αυτή η συσκευή">
-      <span class="self-icon" aria-hidden="true">◉</span>
-      <div class="self-info"><span>Αυτή η συσκευή</span><strong id="meName">Συσκευή</strong></div>
-      <button id="rename" type="button">Μετονομασία</button>
+      <div class="status" role="status" aria-live="polite"><i id="dot"></i><span id="connectionText">Αναζήτηση…</span></div>
     </section>
 
     <section class="section" aria-labelledby="peersTitle">
-      <div class="heading"><h2 id="peersTitle">Συνδεδεμένες συσκευές</h2><small id="peerCount">0 συσκευές</small></div>
-      <div id="peers" class="peer-grid"><div class="peers-empty">Αναζήτηση συσκευών…</div></div>
+      <div class="heading"><h2 id="peersTitle">Συσκευές</h2><small id="peerCount">0 συσκευές</small></div>
+      <div id="peers" class="peer-grid"><div class="peers-empty">Άνοιξε την εφαρμογή και στην άλλη συσκευή.</div></div>
     </section>
 
-    <section class="section" aria-labelledby="sendTitle">
-      <div class="heading"><h2 id="sendTitle">Αποστολή αρχείων</h2><small>Έως 256 MB ανά αρχείο</small></div>
+    <section class="section" aria-label="Αποστολή αρχείων">
       <div id="dropZone" class="drop-zone" role="button" tabindex="0" aria-label="Επιλογή αρχείων για αποστολή">
-        <div class="drop-symbol" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none"><path d="M24 31V11m-8 9 8-9 8 9M11 31v8h26v-8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        <strong>Πάτησε για επιλογή αρχείων</strong>
-        <span>ή σύρε τα αρχεία σου εδώ από τον υπολογιστή</span>
+        <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <path d="M24 31V11m-8 9 8-9 8 9M11 31v8h26v-8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <strong>+ Αποστολή αρχείων</strong>
+        <span>Πάτησε ή σύρε εδώ</span>
       </div>
       <input id="file" type="file" multiple hidden>
     </section>
 
-    <section class="section" aria-labelledby="historyTitle">
+    <section class="section history-section" id="historySection" aria-labelledby="historyTitle" hidden>
       <div class="heading"><h2 id="historyTitle">Μεταφορές</h2></div>
-      <div id="items" class="transfers"><div class="items-empty">Τα αρχεία που στέλνεις και λαμβάνεις θα εμφανίζονται εδώ.</div></div>
+      <div id="items" class="transfers"></div>
     </section>
-
-    <footer class="footer">Χωρίς λογαριασμό · Έλεγξε τον παραλήπτη πριν στείλεις.</footer>
+    <footer class="footer">Έως 256 MB ανά αρχείο · Έλεγξε τον παραλήπτη πριν την αποστολή.</footer>
   </main>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
