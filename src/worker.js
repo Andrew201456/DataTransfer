@@ -4,6 +4,23 @@ const HEX_ID = /^[a-f0-9]{12,24}$/;
 const MAX_BINARY = 48 * 1024 + 12; // 12-byte recipient prefix + one bounded chunk
 const MAX_TEXT = 12000;
 
+// Both devices on an IPv6 LAN usually share a /64 even if their temporary
+// privacy addresses differ. Normalize compressed IPv6 before grouping.
+function networkKey(ip) {
+  if(!ip.includes(":")) return "ip:" + ip;
+  const parts=ip.toLowerCase().split("::");
+  if(parts.length>2)return "isolated:" + ip;
+  const left=parts[0]?parts[0].split(":"):[];
+  const right=parts[1]?parts[1].split(":"):[];
+  // IPv4-mapped addresses are treated as single endpoints, not /64 networks.
+  if(parts.length===1&&left.length!==8||[...left,...right].some(x=>!/^[0-9a-f]{1,4}$/.test(x)))
+    return "ip:" + ip;
+  const gap=8-left.length-right.length;
+  if(gap<0||(parts.length===1&&gap!==0))return "ip:" + ip;
+  const full=[...left,...Array(gap).fill("0"),...right];
+  return "ip6:" + full.slice(0,4).map(part=>parseInt(part,16).toString(16)).join(":");
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -14,10 +31,11 @@ export default {
       // Existing DriveTunes signaling clients still use their dt- prefixed rooms.
       // Keep the legacy IP group for older clients, but the new DataTransfer
       // always creates a random explicit room instead of guessing public IP.
-      const ip = req.headers.get("CF-Connecting-IP") || "unknown";
+      const ip = req.headers.get("CF-Connecting-IP");
       const key = room && /^[a-z0-9-]{6,32}$/.test(room)
         ? "room:" + room
-        : "ip:" + (ip.includes(":") ? ip.split(":").slice(0, 4).join(":") : ip);
+        : ip ? networkKey(ip) : "isolated:" + crypto.randomUUID();
+
       return env.ROOMS.get(env.ROOMS.idFromName(key)).fetch(req);
     }
     return env.ASSETS.fetch(req);
