@@ -1,6 +1,6 @@
 // Cloudflare Durable Object: rendezvous, WebRTC signaling and optional streaming
 // relay when a direct data channel cannot be established. No files are stored.
-const HEX_ID = /^[a-f0-9]{12,16}$/;
+const HEX_ID = /^[a-f0-9]{12,24}$/;
 const MAX_BINARY = 48 * 1024 + 12; // 12-byte recipient prefix + one bounded chunk
 const MAX_TEXT = 12000;
 
