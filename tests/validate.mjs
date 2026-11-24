@@ -22,9 +22,9 @@ for(const char of css){
 }
 assert.equal(depth,0,"Unbalanced CSS braces");
 assert(html.includes('src="/app.js"')&&html.includes('href="/style.css"'));
-const ids=[...html.matchAll(/\\bid="([^"]+)"/g)].map(m=>m[1]);
+const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
 assert.equal(ids.length,new Set(ids).size,"Duplicate HTML ids");
-for(const match of js.matchAll(/\\$\\("#([^"]+)"\\)/g))
+for(const match of js.matchAll(/\$\("#([^"]+)"\)/g))
  assert(ids.includes(match[1]),"Missing element #"+match[1]);
 assert(!html.includes("fonts.googleapis.com"),"Core app must not need remote fonts");
 assert(sw.includes('"/app.js"')&&sw.includes('"/style.css"'));
@@ -36,7 +36,7 @@ assert(worker.includes("const HEX_ID = /^[a-f0-9]{12,24}$/;"),
  "DriveTunes must retain its 24-character peer identifiers");
 
 const Room=new Function(worker.replace("export default","const handler =")
- .replace("export class Room","class Room")+"\\nreturn Room;")();
+ .replace("export class Room","class Room")+"\nreturn Room;")();
 class Socket{
  constructor(){this.frames=[];this.attachment=null;}
  deserializeAttachment(){return this.attachment;}
