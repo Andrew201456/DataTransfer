@@ -29,6 +29,13 @@ for(const match of js.matchAll(/\$\("#([^"]+)"\)/g))
 assert(!html.includes("fonts.googleapis.com"),"Core app must not need remote fonts");
 assert(sw.includes('"/app.js"')&&sw.includes('"/style.css"'));
 assert(js.includes("relayTransport"),"Relay fallback missing");
+assert(html.includes('id="historySection"'),"Transfer history must expand when needed");
+assert(html.includes('class="radar"'),"Minimal connection antenna missing");
+assert(!html.includes('class="self"'),"Redundant self panel should be removed");
+assert(js.includes('function requestDownload('),"Automatic receiver downloads missing");
+assert(js.includes('requestDownload(rx.item);'),"Completed files must attempt auto download");
+assert(js.includes('history.hidden=!transfers.length'),"Empty history should be hidden");
+assert(js.includes('document.body.dataset.signalState='),"Radar should reflect actual connection");
 assert(js.includes('connectSocket("primary")'),"Automatic discovery must start without user action");
 assert(js.includes('discoverGateway()'),"Optional STUN IPv4 matching missing");
 assert(js.includes('sourcePeers'),"Multiple discovery paths must be merged");
