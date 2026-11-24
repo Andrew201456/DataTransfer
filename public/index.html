@@ -3,7 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0c1220">
+  <meta name="theme-color" content="#080f1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DataTransfer">
   <meta name="description" content="Άμεση μεταφορά αρχείων μεταξύ συσκευών.">
   <meta name="robots" content="noindex,nofollow">
   <link rel="manifest" href="/manifest.json">
@@ -26,6 +29,8 @@
     </header>
     <section class="radar" aria-label="Κατάσταση σύνδεσης">
       <div class="signal-visual" aria-hidden="true">
+        <span class="signal-orbit"></span>
+        <span class="signal-halo"></span>
         <span class="signal-wave wave-one"></span>
         <span class="signal-wave wave-two"></span>
         <span class="signal-wave wave-three"></span>
@@ -50,7 +55,7 @@
         <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
           <path d="M24 31V11m-8 9 8-9 8 9M11 31v8h26v-8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <strong>+ Αποστολή αρχείων</strong>
+        <strong>Αποστολή αρχείων</strong>
         <span>Πάτησε ή σύρε εδώ</span>
       </div>
       <input id="file" type="file" multiple hidden>
