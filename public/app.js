@@ -401,12 +401,36 @@
     drawSoon();
     if(rx.item.got===rx.size)finishIncoming(p);
   }
+  function requestDownload(item){
+    // Best effort. Safari/iOS and some browsers require a user gesture or
+    // confirmation; keep the download link available as a reliable fallback.
+    if(!item.url||item.autoDownloadRequested)return;
+    item.autoDownloadRequested=true;
+    const a=document.createElement("a");
+    a.href=item.url;
+    a.download=item.name;
+    a.style.display="none";
+    document.body.appendChild(a);
+    try{
+      a.click();
+      item.downloadAttempted=true;
+    }catch(error){
+      console.warn("Automatic download blocked",error);
+      item.downloadAttempted=false;
+    }finally{
+      a.remove();
+    }
+    drawSoon();
+  }
   function finishIncoming(p){
     const rx=p.rx;
     if(!rx)return;
     p.rx=null;
     rx.item.url=URL.createObjectURL(new Blob(rx.chunks,{type:rx.mime||"application/octet-stream"}));
     rx.item.done=true;drawSoon();
+    // Trigger directly from the data-message event, before its user gesture context
+    // is lost. Browsers may still disallow automatic file saving.
+    requestDownload(rx.item);
     sendControl(p.id,{t:"received",id:rx.id},rx.via);
     toast("Παραλήφθηκε: "+rx.name);
   }
@@ -485,7 +509,7 @@
       return;
     }
     for(const [id,p] of peers){
-      const card=node("article","peer-card");
+      const card=node("article","peer-card"+(selectedPeer===id?" selected":""));
       const avatar=node("div","peer-avatar");
       avatar.append(icon(/κινητ|iphone|ipad|android/i.test(p.name)?"phone":"laptop"));
       const info=node("div","peer-info");
@@ -511,6 +535,8 @@
   }
   function renderItems(){
     el.items.replaceChildren();
+    const history=document.getElementById("historySection");
+    if(history)history.hidden=!transfers.length;
     if(!transfers.length){
       el.items.append(node("div","items-empty","Οι αποστολές και οι παραλαβές θα εμφανίζονται εδώ."));
       return;
@@ -539,7 +565,7 @@
           const fill=node("i","");fill.style.width=pct+"%";progress.append(fill);body.append(progress);
         }
         if(t.dir==="in"&&t.url){
-          const link=node("a","download-button","Λήψη αρχείου");
+          const link=node("a","download-button",t.downloadAttempted?"Λήψη ξανά":"Αποθήκευση αρχείου");
           link.href=t.url;link.download=t.name;body.append(link);
         }
       }
@@ -548,7 +574,7 @@
   }
   function onlyPeer(){
     if(peers.size===1)return peers.keys().next().value;
-    toast(peers.size?"Επίλεξε πρώτα τη συσκευή από τη λίστα.":"Άνοιξε πρώτα το link στη δεύτερη συσκευή.",true);
+    toast(peers.size?"Επίλεξε συσκευή από τη λίστα.":"Άνοιξε το DataTransfer και στη δεύτερη συσκευή.",true);
     return null;
   }
   el.rename.onclick=()=>{
