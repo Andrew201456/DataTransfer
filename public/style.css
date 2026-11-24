@@ -12,10 +12,24 @@ button:focus-visible,a:focus-visible,input:focus-visible,[role="button"]:focus-v
 .status{display:flex;align-items:center;gap:8px;background:#19293b;border:1px solid #304b5f;padding:8px 10px;border-radius:99px;color:#bed2e1;font-size:11px;font-weight:700;white-space:nowrap}
 .status i{height:7px;width:7px;background:#dfb56d;border-radius:50%;flex:none}
 .status i.on{background:#7bedc9;box-shadow:0 0 0 4px #7bedc91a}
-.intro{padding:35px 0 25px}
-.intro h1{font-size:clamp(31px,6.4vw,45px);letter-spacing:-1.5px;line-height:1.14;font-weight:790;margin:0 0 14px}
-.intro h1 em{color:var(--accent);font-style:normal}
-.intro p{color:var(--sub);font-size:14px;line-height:1.65;max-width:570px;margin:0}
+/* Compact connection beacon: pulsing antenna while searching, calm green once found. */
+.signal-panel{display:grid;place-items:center;min-height:145px;padding:17px 0 10px;overflow:hidden}
+.signal-visual{display:grid;place-items:center;width:154px;height:126px;position:relative;isolation:isolate}
+.signal-visual::before{content:"";position:absolute;width:112px;height:112px;border-radius:50%;background:radial-gradient(circle,rgba(115,223,197,.12),transparent 70%);pointer-events:none}
+.signal-wave{position:absolute;width:58px;height:58px;border:1.6px solid rgba(115,223,197,.65);border-radius:50%;opacity:0;animation:beacon-wave 2.65s ease-out infinite;pointer-events:none}
+.wave-one{animation-delay:0s}.wave-two{animation-delay:.88s}.wave-three{animation-delay:1.76s}
+.signal-core{display:grid;place-items:center;position:relative;width:67px;height:67px;border-radius:21px;background:linear-gradient(150deg,#2a5553,#1c3749);border:1px solid #558f82;color:#91f5db;box-shadow:0 0 23px rgba(107,227,193,.17),inset 0 1px 0 rgba(255,255,255,.08)}
+.signal-core svg{width:39px;height:39px;filter:drop-shadow(0 0 7px rgba(115,223,197,.2))}
+.signal-check{display:grid;place-items:center;position:absolute;right:-7px;bottom:-6px;width:23px;height:23px;border-radius:50%;border:3px solid var(--bg);background:#76edca;color:#10392e;font-size:13px;font-weight:900;opacity:0;transform:scale(.7);transition:opacity .25s,transform .25s}
+@keyframes beacon-wave{0%{transform:scale(.75);opacity:0}16%{opacity:.63}100%{transform:scale(2.48);opacity:0}}
+@keyframes beacon-connected{0%,100%{transform:scale(1.37);opacity:.23}50%{transform:scale(1.48);opacity:.5}}
+body[data-signal-state="connected"] .signal-wave{animation:beacon-connected 3.5s ease-in-out infinite}
+body[data-signal-state="connected"] .wave-two,body[data-signal-state="connected"] .wave-three{display:none}
+body[data-signal-state="connected"] .signal-check{opacity:1;transform:scale(1)}
+body[data-signal-state="connected"] .signal-core{border-color:#7ff1d4;box-shadow:0 0 28px rgba(115,223,197,.26),inset 0 1px 0 rgba(255,255,255,.1)}
+body[data-signal-state="offline"] .signal-wave{animation:none;opacity:.13;transform:scale(1.5);border-color:#92a8ba}
+body[data-signal-state="offline"] .wave-two,body[data-signal-state="offline"] .wave-three{display:none}
+body[data-signal-state="offline"] .signal-core{color:#9bafc2;background:#253244;border-color:#46596f;box-shadow:none}
 .self{display:flex;align-items:center;gap:13px;background:linear-gradient(110deg,#1a3039,#172639);border:1px solid #365b60;border-radius:16px;padding:14px 16px}
 .self-icon{display:grid;place-items:center;height:42px;width:42px;background:#2a5651;color:#81efd0;border-radius:12px;font-size:29px;flex:none}
 .self-info{display:flex;flex-direction:column;min-width:0;flex:1}
@@ -60,6 +74,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,[role="button"]:focus-v
 .toast{position:fixed;left:50%;bottom:calc(25px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:min(93vw,510px);width:max-content;border-radius:11px;border:1px solid #569f8d;background:#1d4640;color:#d3fff4;z-index:100;padding:12px 16px;box-shadow:0 10px 40px #0008;font-size:12px;text-align:center}
 .toast.bad{border-color:#9d5b6b;background:#482b39;color:#ffd1df}
 .toast[hidden],input[hidden]{display:none!important}
-@media(max-width:520px){.app{padding:0 14px 45px}.header{padding:17px 0}.brand{font-size:16px;gap:8px}.logo{height:34px;width:34px}.logo svg{height:22px;width:22px}.status{font-size:10px;padding:6px 8px;gap:6px}.intro{padding:28px 0 22px}.intro h1{letter-spacing:-1px}.intro p{font-size:12px}.self{padding:12px 11px;gap:9px}.self button{font-size:10px;padding:7px}.section{margin-top:26px}.peer-buttons button{font-size:11px}.heading h2{font-size:17px}.drop-zone{min-height:165px}}
+@media(max-width:520px){.app{padding:0 14px 45px}.header{padding:17px 0}.brand{font-size:16px;gap:8px}.logo{height:34px;width:34px}.logo svg{height:22px;width:22px}.status{font-size:10px;padding:6px 8px;gap:6px}.signal-panel{min-height:123px;padding:11px 0 4px}.signal-visual{height:110px}.self{padding:12px 11px;gap:9px}.self button{font-size:10px;padding:7px}.section{margin-top:26px}.peer-buttons button{font-size:11px}.heading h2{font-size:17px}.drop-zone{min-height:165px}}
 @media(max-width:330px){.status span{max-width:87px;overflow:hidden;text-overflow:ellipsis}.peer-buttons{flex-direction:column}}
-@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}.signal-wave{opacity:.32;transform:scale(1.52)}.wave-two,.wave-three{display:none}}
