@@ -3,108 +3,62 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0a0f20">
-  <meta name="description" content="Μεταφορά αρχείων από συσκευή σε συσκευή, απλά και γρήγορα. Χωρίς εγγραφή.">
+  <meta name="theme-color" content="#0c1220">
+  <meta name="description" content="Άνοιξε το DataTransfer σε κινητό και υπολογιστή, βρες συσκευές αυτόματα και στείλε αρχεία.">
   <meta name="robots" content="noindex,nofollow">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
-  <title>DataTransfer · Send anything</title>
+  <title>DataTransfer · Αποστολή αρχείων</title>
 </head>
 <body>
-  <div class="ambient ambient-left" aria-hidden="true"></div>
-  <div class="ambient ambient-right" aria-hidden="true"></div>
-  <div class="shell">
+  <main class="app">
     <header class="header">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 32 32" fill="none"><path d="M8 12h16l-5-5m5 5-5 5M24 20H8l5-5m-5 5 5 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="logo" aria-hidden="true">
+          <svg viewBox="0 0 28 28" fill="none"><path d="M5 9h18l-5-5m5 5-5 5M23 19H5l5-5m-5 5 5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
-        <div class="brand-copy"><strong>data<span>transfer</span></strong><small>WIRELESS FILE SHARING</small></div>
+        <strong>DataTransfer</strong>
       </div>
-      <div class="connection-pill"><span class="connection-dot" id="dot"></span><span id="connectionText">Επανασύνδεση…</span></div>
+      <div class="status" role="status" aria-live="polite"><i id="dot"></i><span id="connectionText">Σύνδεση…</span></div>
     </header>
+    <section class="intro">
+      <h1>Αρχεία από συσκευή<br>σε συσκευή. <em>Απλά.</em></h1>
+      <p>Άνοιξε αυτή τη σελίδα στο κινητό και στο PC, ιδανικά στο ίδιο Wi-Fi. Οι συσκευές εντοπίζονται αυτόματα.</p>
+    </section>
+    <section class="self" aria-label="Αυτή η συσκευή">
+      <span class="self-icon" aria-hidden="true">◉</span>
+      <div class="self-info"><span>Αυτή η συσκευή</span><strong id="meName">Συσκευή</strong></div>
+      <button id="rename" type="button">Μετονομασία</button>
+    </section>
 
-    <main>
-      <section class="hero">
-        <div class="hero-grid" aria-hidden="true"></div>
-        <div class="hero-content">
-          <div class="eyebrow"><span class="eyebrow-line"></span> SEND SMARTER · SHARE FASTER <span class="eyebrow-line"></span></div>
-          <h1>Στείλε τα αρχεία σου.<br><em>Απλά. Ασύρματα.</em></h1>
-          <p>Από το κινητό στον υπολογιστή ή οπουδήποτε αλλού. Χωρίς λογαριασμό, καλώδια και περίπλοκες ρυθμίσεις.</p>
-          <div class="hero-points">
-            <span><i></i> Χωρίς εγγραφή</span>
-            <span><i></i> Απευθείας όπου γίνεται</span>
-            <span><i></i> Διαφορετικά δίκτυα</span>
-          </div>
+    <section class="section" aria-labelledby="peersTitle">
+      <div class="heading"><h2 id="peersTitle">Συνδεδεμένες συσκευές</h2><small id="peerCount">0 συσκευές</small></div>
+      <p class="help" id="sessionMode">Αναζήτηση συσκευών…</p>
+      <div id="peers" class="peer-grid"><div class="peers-empty">Αναζήτηση συσκευών…</div></div>
+    </section>
+
+    <section class="section" aria-labelledby="sendTitle">
+      <div class="heading"><h2 id="sendTitle">Αποστολή αρχείων</h2><small>Έως 256 MB ανά αρχείο</small></div>
+      <div id="dropZone" class="drop-zone" role="button" tabindex="0" aria-label="Επιλογή αρχείων για αποστολή">
+        <div class="drop-symbol" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none"><path d="M24 31V11m-8 9 8-9 8 9M11 31v8h26v-8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
-        <div class="hero-art" aria-hidden="true">
-          <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
-          <div class="art-tile tile-a"><svg viewBox="0 0 24 24" fill="none"><rect x="7" y="2" width="10" height="20" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M11 18.5h2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
-          <div class="art-pulse">↗</div>
-          <div class="art-tile tile-b"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M1 21h22" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
-        </div>
-      </section>
+        <strong>Πάτησε για επιλογή αρχείων</strong>
+        <span>ή σύρε τα αρχεία σου εδώ από τον υπολογιστή</span>
+      </div>
+      <input id="file" type="file" multiple hidden>
+    </section>
 
-      <section class="section" aria-labelledby="connectTitle">
-        <div class="section-heading"><div class="section-lead"><span class="step">01</span><div><small>SET UP CONNECTION</small><h2 id="connectTitle">Σύνδεσε τις συσκευές</h2></div></div><span class="section-meta" id="sessionMode">Ιδιωτική σύνδεση</span></div>
-        <div class="setup-layout">
-          <article class="panel invite-panel">
-            <div class="panel-top"><span class="panel-symbol">↗</span><span class="panel-label">Η σύνδεσή σου</span></div>
-            <div class="invite-label">Ο κωδικός σου</div>
-            <div class="code-row"><strong id="roomCode" aria-live="polite">—</strong><button class="icon-action" id="copyCode" type="button" aria-label="Αντιγραφή κωδικού" title="Αντιγραφή κωδικού">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
-            </button></div>
-            <p id="roomLink" class="invite-desc">Μοιράσου τον κωδικό ή τον σύνδεσμο.</p>
-            <div class="invite-actions">
-              <button id="shareLink" class="action-primary" type="button"><span class="button-icon">↗</span> Κοινή χρήση</button>
-              <button id="copyLink" class="action-secondary" type="button">Αντιγραφή link</button>
-            </div>
-            <button id="newRoom" class="regenerate" type="button">↻ Δημιουργία νέας σύνδεσης</button>
-          </article>
+    <section class="section" aria-labelledby="historyTitle">
+      <div class="heading"><h2 id="historyTitle">Μεταφορές</h2></div>
+      <div id="items" class="transfers"><div class="items-empty">Τα αρχεία που στέλνεις και λαμβάνεις θα εμφανίζονται εδώ.</div></div>
+    </section>
 
-          <article class="panel join-panel">
-            <div class="panel-top"><span class="panel-symbol purple-symbol">⌁</span><span class="panel-label">Έχεις ήδη κωδικό;</span></div>
-            <h3>Μπες στην άλλη συσκευή</h3>
-            <p>Άνοιξε το link που σου έστειλαν ή βάλε τον ίδιο κωδικό και στις δύο συσκευές.</p>
-            <label for="joinCode">Κωδικός πρόσκλησης</label>
-            <div class="join-row">
-              <input type="text" id="joinCode" maxlength="32" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="Κωδικός σύνδεσης">
-              <button class="join-button" id="join" type="button">Σύνδεση</button>
-            </div>
-            <div class="device-self"><span class="me-symbol">◉</span><div><small>Αυτή η συσκευή</small><strong id="meName">—</strong></div><button id="rename" type="button" aria-label="Μετονομασία συσκευής">Αλλαγή</button></div>
-          </article>
-        </div>
-      </section>
-
-      <section class="section devices-section" aria-labelledby="devicesTitle">
-        <div class="section-heading"><div class="section-lead"><span class="step">02</span><div><small>CONNECTED DEVICES</small><h2 id="devicesTitle">Συσκευές</h2></div></div><span class="section-meta" id="peerCount">0 συσκευές</span></div>
-        <div id="peers" class="peer-grid"><div class="peers-empty">Περιμένουμε τη δεύτερη συσκευή…</div></div>
-      </section>
-
-      <section class="section send-section" aria-labelledby="sendTitle">
-        <div class="section-heading"><div class="section-lead"><span class="step">03</span><div><small>DROP & SEND</small><h2 id="sendTitle">Στείλε κάτι</h2></div></div><span class="section-meta">Έως 256 MB ανά αρχείο</span></div>
-        <div id="dropZone" class="drop-zone" role="button" tabindex="0" aria-label="Επιλογή αρχείων για αποστολή">
-          <div class="drop-symbol">
-            <svg viewBox="0 0 48 48" fill="none"><path d="M24 33V12m-8 8 8-8 8 8M10 31v7h28v-7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </div>
-          <strong>Σύρε τα αρχεία σου εδώ</strong>
-          <span>ή πάτησε για να επιλέξεις από τη συσκευή σου</span>
-          <span class="drop-badge">MP3 · Φωτογραφίες · Βίντεο · Έγγραφα · Οτιδήποτε</span>
-        </div>
-        <input id="file" type="file" multiple hidden>
-      </section>
-
-      <section class="section history-section" aria-labelledby="historyTitle">
-        <div class="section-heading"><div class="section-lead"><span class="step">04</span><div><small>TRANSFER ACTIVITY</small><h2 id="historyTitle">Μεταφορές</h2></div></div></div>
-        <div id="items" class="transfers"><div class="items-empty">Οι αποστολές και οι παραλαβές θα εμφανίζονται εδώ.</div></div>
-      </section>
-    </main>
-
-    <footer class="footer"><span>DataTransfer <b>·</b> No account needed</span><span>Τα αρχεία δεν αποθηκεύονται στον server. Όπου είναι δυνατό μεταφέρονται P2P, αλλιώς περνούν προσωρινά μέσω Cloudflare.</span></footer>
-  </div>
+    <footer class="footer">Χωρίς λογαριασμό · Απευθείας μεταφορά όταν γίνεται · Εναλλακτική σύνδεση μέσω Cloudflare. Μην στέλνεις ευαίσθητα αρχεία σε άγνωστες συσκευές.</footer>
+  </main>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>
