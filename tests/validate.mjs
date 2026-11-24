@@ -38,6 +38,17 @@ assert(!/room-first|invitation link/i.test(html),"Manual invites must not appear
 assert(js.includes("tryDirect"),"WebRTC direct connection missing");
 assert(js.includes('t:"received"'),"Receiver acknowledgement missing");
 assert(js.includes('const MAX_FILE = 256 * 1024 * 1024;'),"Transfer size guard missing");
+const publicIPv4=new Function(js.slice(js.indexOf("  function publicIPv4("),
+ js.indexOf("  async function discoverGateway("))+"\nreturn publicIPv4;")();
+assert.equal(publicIPv4("8.8.8.8"),true);
+assert.equal(publicIPv4("192.168.1.4"),false);
+assert.equal(publicIPv4("10.0.0.2"),false);
+assert.equal(publicIPv4("100.64.0.1"),false);
+const networkKey=new Function(worker.slice(worker.indexOf("function networkKey("),
+ worker.indexOf("export default"))+"\nreturn networkKey;")();
+assert.equal(networkKey("192.0.2.3"),"ip:192.0.2.3");
+assert.equal(networkKey("2001:db8:1234:5678::1"),networkKey("2001:0db8:1234:5678:ffff::abcd"));
+assert.notEqual(networkKey("2001:db8:1234:5678::1"),networkKey("2001:db8:1234:5679::1"));
 assert(worker.includes("const HEX_ID = /^[a-f0-9]{12,24}$/;"),
  "DriveTunes must retain its 24-character peer identifiers");
 
