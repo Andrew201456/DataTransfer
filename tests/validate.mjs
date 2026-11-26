@@ -43,7 +43,7 @@ assert(html.includes('class="signal-orbit"')&&html.includes('class="signal-halo"
  "Premium scanner visuals missing");
 assert(css.includes("signal-pulse")&&css.includes("orbit-rotate"),
  "Scanner wave and orbit animation missing");
-assert(sw.includes("datatransfer-shell-v7"),
+assert(sw.includes("datatransfer-shell-v8"),
  "PWA shell must invalidate old iPhone cached layout");
 const manifest=JSON.parse(load("public/manifest.json"));
 assert.equal(manifest.theme_color,"#080f1d");
@@ -114,3 +114,14 @@ const received=b.frames.length;
 room.webSocketMessage(new Socket(),frame.buffer);
 assert.equal(b.frames.length,received,"Unregistered sender must not relay data");
 console.log("PASS: assets, syntax, automatic discovery UI, 24-digit DriveTunes signaling, binary and text relay");
+
+assert(html.includes('id="clipboardDialog"')&&html.includes('id="quickClipboard"'));
+assert(js.includes('function validText(')&&js.includes('function transferRate('));
+const helpers=js.slice(js.indexOf("  function validText("),js.indexOf("  function sendText("));
+const {validText,safeLink,transferRate}=new Function(helpers+"\nreturn {validText,safeLink,transferRate};")();
+assert(validText("Καλημέρα"));
+assert(!validText("x".repeat(5001)));
+assert(!validText("\\".repeat(5000)));
+assert.equal(safeLink("https://example.com"),"https://example.com/");
+assert.equal(safeLink("javascript:alert(1)"),null);
+assert.equal(transferRate({startedAt:0,got:1024,size:2048},2000).eta,2);
