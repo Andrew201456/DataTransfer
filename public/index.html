@@ -59,6 +59,7 @@
         <span>Πάτησε ή σύρε εδώ</span>
       </div>
       <input id="file" type="file" multiple hidden>
+      <button type="button" class="clipboard-shortcut" id="quickClipboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="5" width="14" height="16" rx="3"/><rect x="9" y="2" width="6" height="5" rx="1.5"/><path d="M9 12h6m-6 4h4"/></svg><span><strong>Γρήγορη επικόλληση</strong><small>Κείμενο, link ή screenshot</small></span><span aria-hidden="true">›</span></button>
     </section>
 
     <section class="section history-section" id="historySection" aria-labelledby="historyTitle" hidden>
@@ -67,6 +68,17 @@
     </section>
     <footer class="footer">Έως 256 MB ανά αρχείο · Έλεγξε τον παραλήπτη πριν την αποστολή.</footer>
   </main>
+  <dialog id="clipboardDialog" class="clipboard-dialog" aria-labelledby="clipboardTitle">
+    <form id="clipboardForm">
+      <header class="clipboard-head"><div><h2 id="clipboardTitle">Γρήγορη αποστολή</h2><p>Μετέφερε ό,τι έχεις αντιγράψει.</p></div><button type="button" id="clipboardClose" aria-label="Κλείσιμο">×</button></header>
+      <label for="clipboardPeer">Προς συσκευή</label><select id="clipboardPeer" required></select>
+      <label for="clipboardText">Κείμενο ή σύνδεσμος</label><textarea id="clipboardText" rows="5" maxlength="5000" placeholder="Κάνε επικόλληση εδώ…"></textarea>
+      <div class="clipboard-tools"><button type="button" id="clipboardPaste">Επικόλληση από clipboard</button><small id="clipboardCount">0 / 5.000</small></div>
+      <p class="clipboard-hint">Για screenshot ή εικόνα, κάνε Ctrl+V ή επικόλληση στο πεδίο, όπου υποστηρίζεται.</p>
+      <div id="clipboardFiles" hidden></div><p id="clipboardError" role="status" aria-live="polite"></p>
+      <button type="submit" class="clipboard-send" id="clipboardSend">Αποστολή</button>
+    </form>
+  </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>
