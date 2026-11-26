@@ -1,5 +1,5 @@
 /* Cache only the static app. Files, websocket data and discovery messages are never stored. */
-const CACHE="datatransfer-shell-v7";
+const CACHE="datatransfer-shell-v8";
 const SHELL=["/","/index.html","/style.css","/app.js","/manifest.json","/icon-192.png","/icon-512.png"];
 self.addEventListener("install",event=>{
   event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));
