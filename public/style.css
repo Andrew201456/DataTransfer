@@ -354,3 +354,29 @@ body[data-signal-state=offline] .signal-core{
   .signal-wave{opacity:.25;transform:scale(2.1)}
   .wave-two,.wave-three{display:none!important}
 }
+
+/* Clipboard composer and live feedback */
+.clipboard-shortcut{display:flex;align-items:center;gap:13px;width:100%;margin-top:11px;padding:13px 15px;min-height:65px;border:1px solid var(--line);border-radius:17px;background:var(--surface);text-align:left;color:var(--ink)}
+.clipboard-shortcut svg{width:26px;height:26px;flex:none;color:var(--mint)}
+.clipboard-shortcut span:nth-child(2){flex:1;min-width:0}
+.clipboard-shortcut strong,.clipboard-shortcut small{display:block}
+.clipboard-shortcut small{color:var(--muted);font-size:.78rem;margin-top:3px}
+.clipboard-shortcut span:last-child{color:var(--mint);font-size:1.5rem}
+.clipboard-dialog{width:min(440px,calc(100% - 24px));max-height:90dvh;overflow:auto;border:1px solid var(--line);border-radius:23px;padding:20px;background:#131f31;color:var(--ink);box-shadow:0 18px 80px #0008}
+.clipboard-dialog::backdrop{background:#040a15bb;backdrop-filter:blur(4px)}
+.clipboard-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:18px}
+.clipboard-head h2{font-size:1.2rem;margin:0;font-weight:750;letter-spacing:normal}
+.clipboard-head p{font-size:.84rem;color:var(--muted);margin:4px 0 0}
+.clipboard-head button,.clipboard-file button{background:#263950;border:1px solid var(--line);border-radius:10px;color:var(--ink);width:40px;height:40px;flex:none;font-size:1.3rem}
+.clipboard-dialog label{display:block;font-size:.82rem;color:var(--muted);margin:12px 0 5px}
+.clipboard-dialog select,.clipboard-dialog textarea{display:block;width:100%;border:1px solid var(--line);border-radius:12px;background:#080f1d;color:var(--ink);font:inherit;font-size:16px;padding:11px;min-height:45px}
+.clipboard-dialog textarea{resize:vertical;line-height:1.5}
+.clipboard-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.clipboard-tools button{background:transparent;color:var(--mint);border:1px solid var(--line);border-radius:9px;min-height:42px;padding:6px 10px;font-size:.8rem}
+.clipboard-tools small,.clipboard-hint{font-size:.75rem;color:var(--muted)}
+.clipboard-file{display:flex;align-items:center;gap:8px;justify-content:space-between;background:#080f1d;padding:8px;border-radius:10px;margin:6px 0;font-size:.8rem;overflow-wrap:anywhere}
+#clipboardError{font-size:.8rem;color:var(--danger);margin:8px 0}
+.clipboard-send{width:100%;border:0;border-radius:12px;background:var(--mint);color:#08232a;min-height:48px;font-weight:750}
+.clipboard-send:disabled{opacity:.4;cursor:default}
+.transfer-rate{display:block;font-size:.75rem;color:var(--mint);margin-top:6px;font-variant-numeric:tabular-nums}
+.transfer-note{overflow-wrap:anywhere}
