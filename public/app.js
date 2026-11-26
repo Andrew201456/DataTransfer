@@ -54,6 +54,13 @@
     if(value!==undefined)n.textContent=value;
     return n;
   }
+  async function copy(text,message){
+    try{await navigator.clipboard.writeText(text);toast(message);}
+    catch{
+      const field=document.createElement("textarea");field.value=text;field.style.position="fixed";field.style.opacity="0";document.body.append(field);field.select();
+      try{if(!document.execCommand("copy"))throw Error("copy failed");toast(message);}catch{toast("Η αντιγραφή δεν επιτράπηκε. Επίλεξε το κείμενο χειροκίνητα.",true);}finally{field.remove();}
+    }
+  }
   function toast(message, bad=false) {
     clearTimeout(toastTimer);
     el.toast.textContent=message;
@@ -99,7 +106,7 @@
       if(p.socket?.readyState!==WebSocket.OPEN||!sourcePeers.get(p.socket)?.some(e=>e.id===id))
         p.socket=entry.socket;
     }
-    renderPeers();refreshConnection();
+    renderPeers();refreshConnection();refreshClipboard();
   }
   function syncPeers(list,socket) {
     sourcePeers.set(socket,list);
@@ -379,7 +386,7 @@
         if(!fileName||!Number.isSafeInteger(size)||size<0||size>MAX_FILE||p.rx)return;
         const idCode=String(m.id||"");
         if(!/^[0-9a-f]{32}$/.test(idCode))return;
-        const item=addTransfer({dir:"in",peer:p.name,name:fileName,size,got:0,done:false});
+        const item=addTransfer({dir:"in",peer:p.name,name:fileName,size,got:0,done:false,method:via,startedAt:performance.now()});
         p.rx={id:idCode,name:fileName,size,mime:String(m.type||"").slice(0,100),
           chunks:[],item,via,lastAck:0};
         if(size===0)finishIncoming(p);
@@ -459,7 +466,7 @@
   async function sendFile(id,file,item) {
     if(file.size>MAX_FILE)throw new Error("Μέγιστο αρχείο 256 MB.");
     const transport=await connect(id);
-    item.method=transport.kind;
+    item.method=transport.kind;item.startedAt=performance.now();
     const tx=crypto.randomUUID().replace(/-/g,"");
     const receipt=makeReceipt(tx);
     let timeout=null;
@@ -491,9 +498,29 @@
       });
     }
   }
+  function validText(text){
+    if(typeof text!=="string"||!text.trim()||text.length>5000)return false;
+    const payload=JSON.stringify({t:"text",text});
+    return payload.length<=8000&&JSON.stringify({type:"relay",to:"0".repeat(12),data:payload}).length<=12000;
+  }
+  function safeLink(value){
+    try{const u=new URL(value.trim());return ["http:","https:"].includes(u.protocol)&&!u.username&&!u.password?u.href:null;}catch{return null;}
+  }
+  function transferRate(item,now=performance.now()){
+    const elapsed=(now-(item.startedAt??now))/1000;
+    if(!Number.isFinite(elapsed)||elapsed<1||!item.got)return null;
+    const speed=item.got/elapsed;
+    return {speed,eta:Math.max(0,Math.ceil((item.size-item.got)/speed))};
+  }
+  function etaLabel(seconds){
+    if(seconds<60)return seconds+" δευτ.";
+    if(seconds<3600)return Math.floor(seconds/60)+" λ. "+seconds%60+" δευτ.";
+    return Math.floor(seconds/3600)+" ώ. "+Math.floor(seconds%3600/60)+" λ.";
+  }
   function sendText(id,text){
     const p=peers.get(id);if(!p||!text)return;
-    const clean=text.slice(0,5000);
+    if(!validText(text))return toast("Το κείμενο είναι πολύ μεγάλο. Στείλ' το ως αρχείο.",true);
+    const clean=text;
     const item=addTransfer({dir:"out",peer:p.name,text:clean,done:false});
     enqueue(id,async()=>{
       try {const transport=await connect(id);transport.send(JSON.stringify({t:"text",text:clean}));item.done=true;item.method=transport.kind;}
@@ -520,8 +547,7 @@
       send.type="button";send.addEventListener("click",()=>{selectedPeer=id;el.file.click();});
       const textBtn=node("button","text-button","Κείμενο / link");
       textBtn.type="button";textBtn.addEventListener("click",()=>{
-        const text=prompt("Γράψε κείμενο ή έναν σύνδεσμο για "+p.name+":");
-        if(text?.trim())sendText(id,text.trim());
+        openClipboard(id);
       });
       actions.append(send,textBtn);card.append(avatar,info,actions);
       card.addEventListener("dragover",e=>{e.preventDefault();card.classList.add("drag");});
@@ -552,7 +578,9 @@
           const copyButton=node("button","text-copy","Αντιγραφή");
           copyButton.type="button";copyButton.onclick=()=>copy(t.text,"Το κείμενο αντιγράφηκε.");
           body.append(copyButton);
-        }
+          const url=safeLink(t.text);
+          if(url){const link=node("a","download-button","Άνοιγμα συνδέσμου");link.href=url;link.target="_blank";link.rel="noopener noreferrer";body.append(link);}
+        }else body.append(node("small","transfer-note",t.err?"Σφάλμα: "+t.err:t.done?"Στάλθηκε · "+t.peer:"Σε αναμονή…"));
       }else{
         body.append(node("strong","transfer-title",t.name));
         const pct=t.size?Math.round(t.got/t.size*100):100;
@@ -563,6 +591,9 @@
           const progress=node("div","transfer-progress");progress.setAttribute("role","progressbar");
           progress.setAttribute("aria-valuenow",String(pct));progress.setAttribute("aria-valuemin","0");progress.setAttribute("aria-valuemax","100");
           const fill=node("i","");fill.style.width=pct+"%";progress.append(fill);body.append(progress);
+          const rate=transferRate(t);
+          if(rate&&t.got<t.size)body.append(node("small","transfer-rate",fmt(rate.speed)+"/s · περίπου "+etaLabel(rate.eta)+" απομένουν"));
+          else if(t.got===t.size)body.append(node("small","transfer-rate","Αναμονή ολοκλήρωσης…"));
         }
         if(t.dir==="in"&&t.url){
           const link=node("a","download-button",t.downloadAttempted?"Λήψη ξανά":"Αποθήκευση αρχείου");
@@ -571,6 +602,78 @@
       }
       row.append(graphic,body);el.items.append(row);
     }
+  }
+  const clip={dialog:$("#clipboardDialog"),form:$("#clipboardForm"),peer:$("#clipboardPeer"),text:$("#clipboardText"),files:$("#clipboardFiles"),error:$("#clipboardError"),count:$("#clipboardCount"),send:$("#clipboardSend")};
+  let pastedFiles=[];
+  function refreshClipboard(){
+    if(!clip.dialog?.open)return;
+    const selected=clip.peer.value;
+    clip.peer.replaceChildren();
+    const placeholder=node("option","","Επίλεξε συσκευή");placeholder.value="";clip.peer.append(placeholder);
+    for(const [id,p] of peers){const option=node("option","",p.name);option.value=id;clip.peer.append(option);}
+    // Never silently switch to another peer if the selected device disappears.
+    clip.peer.value=peers.has(selected)?selected:"";
+    clip.send.disabled=!clip.peer.value||(!clip.text.value.trim()&&!pastedFiles.length);
+    clip.count.textContent=clip.text.value.length.toLocaleString("el-GR")+" / 5.000";
+    clip.files.hidden=!pastedFiles.length;clip.files.replaceChildren();
+    pastedFiles.forEach((file,index)=>{
+      const row=node("div","clipboard-file");row.append(node("span","",file.name+" · "+fmt(file.size)));
+      const remove=node("button","","×");remove.type="button";remove.setAttribute("aria-label","Αφαίρεση "+file.name);
+      remove.onclick=()=>{pastedFiles.splice(index,1);refreshClipboard()};row.append(remove);clip.files.append(row);
+    });
+  }
+  function openClipboard(id){
+    if(!peers.size)return toast("Άνοιξε το DataTransfer και στη δεύτερη συσκευή.",true);
+    if(!clip.dialog?.showModal){const text=prompt("Κείμενο ή link:");if(id&&text?.trim())sendText(id,text.trim());return;}
+    pastedFiles=[];clip.text.value="";clip.error.textContent="";
+    if(!clip.dialog.open)clip.dialog.showModal();
+    refreshClipboard();
+    clip.peer.value=id&&peers.has(id)?id:"";
+    if(peers.size===1)clip.peer.value=peers.keys().next().value;
+    refreshClipboard();clip.text.focus();
+  }
+  if(clip.dialog){
+    $("#quickClipboard").onclick=()=>openClipboard(peers.size===1?peers.keys().next().value:null);
+    $("#clipboardClose").onclick=()=>clip.dialog.close();
+    clip.peer.addEventListener("change",refreshClipboard);
+    clip.text.addEventListener("input",()=>{clip.error.textContent="";refreshClipboard()});
+    $("#clipboardPaste").onclick=async()=>{
+      try{
+        if(!navigator.clipboard?.readText)throw Error("Clipboard unavailable");
+        const text=await navigator.clipboard.readText();
+        if(!clip.dialog.open)return;
+        if(text.length>5000){clip.error.textContent="Το κείμενο ξεπερνά τους 5.000 χαρακτήρες. Στείλ' το ως αρχείο.";return;}
+        clip.text.value=text;clip.error.textContent=text?"":"Δεν βρέθηκε κείμενο. Δοκίμασε χειροκίνητη επικόλληση.";refreshClipboard();
+      }catch{clip.error.textContent="Ο browser δεν επέτρεψε πρόσβαση. Κάνε χειροκίνητη επικόλληση.";clip.text.focus();}
+    };
+    clip.text.addEventListener("paste",event=>{
+      const data=event.clipboardData,files=Array.from(data?.files||[]);
+      if(files.length){
+        event.preventDefault();
+        for(const file of files){
+          if(file.size>MAX_FILE){clip.error.textContent="Μέγιστο μέγεθος 256 MB ανά αρχείο.";continue;}
+          if(pastedFiles.length>=10){clip.error.textContent="Έως 10 επικολλημένα αρχεία.";break;}
+          const ext=file.type==="image/jpeg"?"jpg":file.type==="image/webp"?"webp":file.type==="image/png"?"png":"bin";
+          const name=file.name&&file.name!=="image.png"?file.name:"clipboard-"+Date.now()+"-"+(pastedFiles.length+1)+"."+ext;
+          pastedFiles.push(new File([file],name,{type:file.type}));
+        }
+        refreshClipboard();
+      }else{
+        const text=data?.getData("text/plain");
+        if(text&&text.length+(clip.text.value.length-(clip.text.selectionEnd-clip.text.selectionStart))>5000){event.preventDefault();clip.error.textContent="Το κείμενο ξεπερνά τους 5.000 χαρακτήρες.";}
+      }
+    });
+    clip.form.addEventListener("submit",event=>{
+      event.preventDefault();
+      const id=clip.peer.value,text=clip.text.value.trim();
+      if(!peers.has(id)){clip.error.textContent="Επίλεξε διαθέσιμη συσκευή.";return;}
+      if(text&&!validText(text)){clip.error.textContent="Το κείμενο ξεπερνά το όριο μεταφοράς. Στείλ' το ως αρχείο.";return;}
+      if(!text&&!pastedFiles.length)return;
+      if(text)sendText(id,text);
+      if(pastedFiles.length)sendFiles(id,pastedFiles);
+      clip.dialog.close();
+    });
+    clip.dialog.addEventListener("close",()=>{pastedFiles=[];clip.text.value="";clip.error.textContent="";});
   }
   function onlyPeer(){
     if(peers.size===1)return peers.keys().next().value;
