@@ -609,9 +609,10 @@
     if(!clip.dialog?.open)return;
     const selected=clip.peer.value;
     clip.peer.replaceChildren();
-    if(peers.size!==1){const option=node("option","","Επίλεξε συσκευή");option.value="";clip.peer.append(option);}
+    const placeholder=node("option","","Επίλεξε συσκευή");placeholder.value="";clip.peer.append(placeholder);
     for(const [id,p] of peers){const option=node("option","",p.name);option.value=id;clip.peer.append(option);}
-    if(peers.has(selected))clip.peer.value=selected;
+    // Never silently switch to another peer if the selected device disappears.
+    clip.peer.value=peers.has(selected)?selected:"";
     clip.send.disabled=!clip.peer.value||(!clip.text.value.trim()&&!pastedFiles.length);
     clip.count.textContent=clip.text.value.length.toLocaleString("el-GR")+" / 5.000";
     clip.files.hidden=!pastedFiles.length;clip.files.replaceChildren();
